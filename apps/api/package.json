@@ -21,6 +21,7 @@
     "zod": "4.6.5"
   },
   "scripts": {
-    "start": "tsx src/main.ts"
+    "start": "tsx src/main.ts",
+    "migrate": "tsx ../../packages/db/src/migrate-cli.ts"
   }
 }

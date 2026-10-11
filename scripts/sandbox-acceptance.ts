@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { ROOT } from "@witness/config";
 
 const BASE = process.env.WITNESS_API ?? "http://127.0.0.1:4000";
-const keys = JSON.parse(readFileSync(join(ROOT, ".witness", "dev-keys.json"), "utf8"));
+const keys = JSON.parse(readFileSync(process.env.WITNESS_KEYS_FILE ?? join(ROOT, ".witness", "dev-keys.json"), "utf8"));
 const TERMINAL = new Set(["REJECTED", "AUTH_FAILED", "CAPTURED", "VOIDED", "CAPTURE_DECLINED", "HELD"]);
 
 async function call(method: string, path: string, key: string, body?: unknown, extra: Record<string, string> = {}) {
@@ -124,6 +124,15 @@ async function scenario(name: string) {
   record("HOLD", "Missing size -> HOLD (funds held), shopper revokes", "HELD with auth CREATED, then VOIDED", after, pp, heldOk && after.state === "VOIDED" && pp.authorizations[0].status === "VOIDED", `while held: auth ${held.authorizations[0].status}`);
 }
 
+// Webhooks: PayPal delivers asynchronously, so give it a moment, then report what arrived.
+await new Promise((r) => setTimeout(r, Number(process.env.WEBHOOK_WAIT_MS ?? 20_000)));
+const wh = (await call("GET", "/v1/console/webhooks", keys.ops)).json;
+const verifiedEvents = (wh?.events ?? []).filter((e: any) => e.verified);
+const webhookLine = !wh?.configured
+  ? "Webhooks: not configured on this API (PAYPAL_WEBHOOK_ID unset)."
+  : `Webhooks: ${verifiedEvents.length} verified event(s) received (${[...new Set(verifiedEvents.map((e: any) => e.event_type))].join(", ") || "none yet"}); ${(wh.events ?? []).length - verifiedEvents.length} rejected.`;
+console.log(webhookLine);
+
 const chain = (await call("GET", "/v1/verify/chain", keys.ops)).json;
 console.log(`audit chain: ${chain.valid ? "valid" : "INVALID"} (${chain.count} events, head ${chain.head_hash.slice(0, 23)}...)`);
 
@@ -138,11 +147,13 @@ const md = [
   "|---|---|---|---|---|---|---|---|",
   ...rows.map((r) => `| ${r.id} | ${r.scenario} | ${r.expected} | ${r.witness_state} | ${r.paypal} | ${r.ids} | ${r.pass ? "**PASS**" : "**FAIL**"} | ${r.note.replace(/\|/g, "/")} |`),
   "",
+  webhookLine,
+  "",
   `Audit chain after the run: **${chain.valid ? "valid" : "INVALID"}**, ${chain.count} events, head \`${chain.head_hash}\`.`,
   "",
 ];
 mkdirSync(join(ROOT, "docs", "evidence"), { recursive: true });
-writeFileSync(join(ROOT, "docs", "evidence", "stage3-sandbox-run.md"), md.join("\n"));
+writeFileSync(join(ROOT, "docs", "evidence", process.env.EVIDENCE_FILE ?? "stage3-sandbox-run.md"), md.join("\n"));
 const failed = rows.filter((r) => !r.pass).length;
 console.log(failed ? `${failed} FAILED` : "all scenarios passed");
 process.exit(failed ? 1 : 0);

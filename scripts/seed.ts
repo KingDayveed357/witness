@@ -1,11 +1,11 @@
 // Seed the demo tenant: payee merchant, demo shopper with a saved sandbox wallet, and API keys.
-// Keys are written to .witness/dev-keys.json (gitignored) and never printed.
+// Keys are written to WITNESS_KEYS_FILE (default .witness/dev-keys.json, gitignored) and never printed.
 //
 // Needs: DATABASE_URL, PAYPAL_MERCHANT_ID (the sandbox Business account's merchant ID, the payee
 // every order must pay), and a vault ID from WITNESS_DEMO_VAULT_ID or spikes/out/vault.json.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { newId } from "@witness/core";
 import { loadDotEnv, ROOT } from "@witness/config";
 import { createApiKey, createPool, migrate } from "@witness/db";
@@ -36,8 +36,9 @@ const keys = {
   demo: (await createApiKey(pool, tenantId, "demo", ["demo"])).key,
   admin: (await createApiKey(pool, tenantId, "admin", ["admin", "ops"])).key,
 };
-mkdirSync(join(ROOT, ".witness"), { recursive: true });
-writeFileSync(join(ROOT, ".witness", "dev-keys.json"), JSON.stringify(keys, null, 2));
+const keysFile = process.env.WITNESS_KEYS_FILE ?? join(ROOT, ".witness", "dev-keys.json");
+mkdirSync(dirname(keysFile), { recursive: true });
+writeFileSync(keysFile, JSON.stringify(keys, null, 2));
 await pool.end();
-console.log(`Seeded tenant ${tenantId}, demo shopper ${shopperId}. API keys written to .witness/dev-keys.json (not printed).`);
+console.log(`Seeded tenant ${tenantId}, demo shopper ${shopperId}. API keys written to ${keysFile} (not printed).`);
 console.log(`Set WITNESS_DEMO_SHOPPER_ID=${shopperId} for the API's demo scenarios.`);

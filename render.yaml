@@ -13,7 +13,7 @@ services:
     runtime: node
     region: oregon
     buildCommand: corepack enable && pnpm install --frozen-lockfile
-    preDeployCommand: pnpm db:migrate
+    preDeployCommand: pnpm --filter @witness/api migrate
     startCommand: pnpm --filter @witness/api start
     healthCheckPath: /healthz
     envVars:

@@ -2,7 +2,7 @@
 // (money moves only in the worker's executor; see the route-inventory test).
 
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { uuidv5, WITNESS_NAMESPACE } from "@witness/core";
 import { QUEUES, dbOf, enqueue, lookupApiKey, schema, verifyChain, withTx } from "@witness/db";
 import {
@@ -236,6 +236,24 @@ export function buildApp(o: AppOptions): FastifyInstance {
     });
     if (!verified) return problem(reply, 400, "Webhook signature verification failed");
     return { received: true };
+  });
+
+  /** Recent webhook deliveries (no payloads): lets ops confirm PayPal is reaching us and signatures verify. */
+  app.get("/v1/console/webhooks", { preHandler: auth("ops", "admin") }, async () => {
+    const rows = await dbOf(d.pool)
+      .select({
+        event_id: schema.webhookEvents.eventId,
+        event_type: schema.webhookEvents.eventType,
+        resource_id: schema.webhookEvents.resourceId,
+        verified: schema.webhookEvents.verified,
+        received_at: schema.webhookEvents.receivedAt,
+        processed_at: schema.webhookEvents.processedAt,
+        outcome: schema.webhookEvents.outcome,
+      })
+      .from(schema.webhookEvents)
+      .orderBy(desc(schema.webhookEvents.receivedAt))
+      .limit(50);
+    return { configured: Boolean(o.webhookId), events: rows };
   });
 
   // ---- public verification ----------------------------------------------------------------

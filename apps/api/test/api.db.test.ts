@@ -135,6 +135,15 @@ describe("webhooks", () => {
     expect(results.filter((x) => x.startsWith("witness-webhook"))).toEqual(["witness-webhook: no matching purchase"]);
   });
 
+  test("ops can list recent deliveries without payloads; agents cannot", async () => {
+    const r = await app.inject({ method: "GET", url: "/v1/console/webhooks", headers: bearer("ops") });
+    expect(r.statusCode).toBe(200);
+    expect(r.json().configured).toBe(true);
+    expect(r.json().events.find((e: any) => e.event_id === "WH-EVT-1")).toMatchObject({ verified: true, event_type: "PAYMENT.CAPTURE.COMPLETED" });
+    expect(JSON.stringify(r.json())).not.toMatch(/"payload"/);
+    expect((await app.inject({ method: "GET", url: "/v1/console/webhooks", headers: bearer("agent") })).statusCode).toBe(403);
+  });
+
   test("a forged webhook is refused and never queued", async () => {
     const r = await app.inject({ method: "POST", url: "/v1/webhooks/paypal", headers: headers("forged", "t-2"), payload: { id: "WH-EVT-FORGED", event_type: "PAYMENT.CAPTURE.COMPLETED", resource: { id: "CAP-Y" } } });
     expect(r.statusCode).toBe(400);
