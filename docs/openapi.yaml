@@ -1,0 +1,442 @@
+openapi: 3.1.0
+info:
+  title: Witness API
+  version: 0.1.0-draft
+  description: |
+    Draft for Checkpoint 2. Witness screens agent carts against a confirmed intent,
+    authorizes on PayPal (sandbox), and decides CAPTURE, HOLD, VOID or REJECT.
+    There is deliberately no capture or void endpoint: money moves only in the
+    isolated executor, by consuming a single-use approval (docs/architecture.md §2).
+  license:
+    name: MIT
+servers:
+  - url: https://witness-api.onrender.com/v1
+    description: Hosted demo (URL assigned at deploy)
+  - url: http://localhost:4000/v1
+security:
+  - apiKey: []
+tags:
+  - name: intents
+  - name: purchases
+  - name: holds
+  - name: webhooks
+  - name: verify
+  - name: console
+  - name: demo
+paths:
+  /intents:
+    post:
+      tags: [intents]
+      summary: Compile free text into a DRAFT policy with ambiguities
+      security: [{ shopperSession: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [text]
+              properties:
+                text: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        "201":
+          description: Draft intent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Intent" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /intents/{intentId}:
+    get:
+      tags: [intents]
+      security: [{ shopperSession: [] }, { apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/intentId" }]
+      responses:
+        "200":
+          description: Intent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Intent" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /intents/{intentId}/confirm:
+    post:
+      tags: [intents]
+      summary: Freeze the policy (answers to ambiguities included) as CONFIRMED vN
+      security: [{ shopperSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/intentId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [policy]
+              properties:
+                policy: { $ref: "#/components/schemas/PolicyV1" }
+      responses:
+        "200":
+          description: Confirmed intent with digest
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Intent" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /intents/{intentId}/revoke:
+    post:
+      tags: [intents]
+      summary: Revoke; open HOLDs on this intent are voided
+      security: [{ shopperSession: [] }]
+      parameters: [{ $ref: "#/components/parameters/intentId" }]
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Intent" }
+  /purchases:
+    post:
+      tags: [purchases]
+      summary: Submit an agent cart for a confirmed intent
+      description: |
+        Witness re-fetches product facts by canonical ID and never uses the agent's
+        description. Violations are REJECTED before any PayPal call. Otherwise the
+        order is created from the verified cart and authorized against the shopper's
+        saved wallet, then verified against PayPal's stored order.
+      security: [{ apiKey: [agent:purchase] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PurchaseRequest" }
+      responses:
+        "202":
+          description: Accepted; state reflects the decision so far
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "200":
+          description: Idempotent replay of an earlier identical request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "422":
+          description: Malformed cart, or Idempotency-Key reused with a different body
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+  /purchases/{purchaseId}:
+    get:
+      tags: [purchases]
+      summary: Purchase status (agents see status and reasons only)
+      security: [{ apiKey: [agent:purchase] }, { shopperSession: [] }, { apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+  /purchases/{purchaseId}/evidence:
+    get:
+      tags: [purchases]
+      summary: Checks, facts snapshot, PayPal IDs and chain proof
+      security: [{ shopperSession: [] }, { apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200":
+          description: Evidence
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Evidence" }
+  /purchases/{purchaseId}/paypal:
+    get:
+      tags: [purchases]
+      summary: Live read-only proxy of PayPal's own order, authorization and capture status
+      security: [{ shopperSession: [] }, { apiKey: [ops] }, { apiKey: [demo] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200":
+          description: PayPal state as fetched now (with debug IDs)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fetched_at: { type: string, format: date-time }
+                  order: { type: object }
+                  authorization: { type: object }
+                  capture: { type: object }
+  /holds/{purchaseId}/approve:
+    post:
+      tags: [holds]
+      summary: Shopper approves a held purchase (re-verified before capture)
+      security: [{ holdToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "202":
+          description: Approved; capture queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /holds/{purchaseId}/deny:
+    post:
+      tags: [holds]
+      security: [{ holdToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "202":
+          description: Denied; void queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+  /webhooks/paypal:
+    post:
+      tags: [webhooks]
+      summary: PayPal webhook intake (signature verified with PayPal, then deduped and re-fetched)
+      security: []
+      responses:
+        "200": { description: Stored (or duplicate) }
+        "400": { description: Signature verification failed }
+  /verify/purchases/{purchaseId}:
+    get:
+      tags: [verify]
+      summary: Recompute the hash chain for one purchase
+      security: []
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChainProof" }
+  /verify/chain:
+    get:
+      tags: [verify]
+      summary: Recompute the full chain for the current epoch; returns the head hash
+      security: []
+      responses:
+        "200":
+          description: Chain head and validity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChainProof" }
+  /console/purchases:
+    get:
+      tags: [console]
+      security: [{ apiKey: [ops] }]
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: Ledger rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PurchaseStatus" }
+  /console/holds:
+    get:
+      tags: [console]
+      security: [{ apiKey: [ops] }]
+      responses:
+        "200":
+          description: Open HOLDs with time remaining before auto-void
+  /console/stats:
+    get:
+      tags: [console]
+      security: [{ apiKey: [ops] }]
+      responses:
+        "200":
+          description: Aggregates (blocked value by reason, outcomes by day, false-capture counter)
+  /demo/scenarios/{name}:
+    post:
+      tags: [demo]
+      summary: Run a named judge scenario through the public purchase path
+      security: [{ apiKey: [demo] }]
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, enum: [normal, suspicious, hold, injection, cart_swap] }
+      responses:
+        "202":
+          description: Scenario started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "429": { $ref: "#/components/responses/Problem" }
+  /demo/reset:
+    post:
+      tags: [demo]
+      summary: Void all open authorizations, start a new audit epoch, reseed
+      security: [{ apiKey: [admin] }]
+      responses:
+        "202": { description: Reset queued }
+components:
+  securitySchemes:
+    apiKey: { type: http, scheme: bearer, description: "Witness API key; scopes agent:purchase | ops | demo | admin" }
+    shopperSession: { type: apiKey, in: cookie, name: witness_session }
+    holdToken: { type: apiKey, in: query, name: t, description: "One-time token from the HOLD notification, 15-minute expiry" }
+  parameters:
+    intentId: { name: intentId, in: path, required: true, schema: { type: string } }
+    purchaseId: { name: purchaseId, in: path, required: true, schema: { type: string } }
+  responses:
+    Problem:
+      description: RFC 9457 problem details
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Problem:
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        trace_id: { type: string }
+    PolicyV1:
+      type: object
+      additionalProperties: false
+      required: [version, retailers, max_total_cents, currency, quantity, substitution, expires_at]
+      properties:
+        version: { const: 1 }
+        products: { type: array, items: { type: string }, description: "Allowed canonical Channel3 product IDs" }
+        category: { type: string }
+        retailers: { type: array, minItems: 1, items: { type: string }, description: "Allowed retailer domains" }
+        max_total_cents: { type: integer, minimum: 1 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        quantity: { type: integer, minimum: 1, maximum: 99 }
+        hard:
+          type: object
+          additionalProperties: false
+          properties:
+            excluded_colors: { type: array, items: { type: string } }
+            size: { type: string }
+            brand: { type: string }
+        soft:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, text]
+            properties:
+              id: { type: string }
+              text: { type: string }
+        substitution: { type: string, enum: [deny, hold, same_category_under_max] }
+        expires_at: { type: string, format: date-time }
+        max_purchases: { type: integer, minimum: 1, default: 1 }
+        on_ambiguity: { type: string, enum: [hold], default: hold }
+    Intent:
+      type: object
+      properties:
+        id: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [DRAFT, CONFIRMED, REVOKED, EXPIRED] }
+        source_text: { type: string }
+        policy: { $ref: "#/components/schemas/PolicyV1" }
+        policy_digest: { type: string, description: "sha256 of RFC 8785 canonical JSON" }
+        ambiguities:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              question: { type: string }
+              options: { type: array, items: { type: string } }
+        confirmed_at: { type: string, format: date-time }
+    PurchaseRequest:
+      type: object
+      additionalProperties: false
+      required: [intent_id, retailer, lines]
+      properties:
+        intent_id: { type: string }
+        retailer: { type: string, description: "Retailer domain the agent chose" }
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: object
+            additionalProperties: false
+            required: [product_id, quantity]
+            properties:
+              product_id: { type: string, description: "Canonical Channel3 product ID" }
+              variant: { type: object, additionalProperties: { type: string } }
+              quantity: { type: integer, minimum: 1, maximum: 99 }
+        agent_note: { type: string, maxLength: 500, description: "Free text; treated as untrusted and never used for decisions" }
+    PurchaseStatus:
+      type: object
+      properties:
+        id: { type: string }
+        state:
+          type: string
+          enum: [SCREENING, REJECTED, AUTHORIZING, AUTH_FAILED, VERIFYING, HELD, CAPTURE_APPROVED, CAPTURING, CAPTURE_PENDING, NEEDS_RECONCILE, CAPTURED, CAPTURE_DECLINED, VOIDING, VOIDED, DISPUTED, DISPUTE_RESOLVED, REFUNDED]
+        outcome: { type: string, enum: [REJECT, HOLD, CAPTURE, VOID] }
+        reasons: { type: array, items: { type: string } }
+        amount: { type: object, properties: { currency_code: { type: string }, value: { type: string } } }
+        paypal: { type: object, properties: { order_id: { type: string }, authorization_id: { type: string }, capture_id: { type: string } } }
+        updated_at: { type: string, format: date-time }
+    Evidence:
+      type: object
+      properties:
+        purchase: { $ref: "#/components/schemas/PurchaseStatus" }
+        intent: { $ref: "#/components/schemas/Intent" }
+        facts: { type: array, items: { type: object } }
+        checks:
+          type: array
+          items:
+            type: object
+            properties:
+              phase: { type: string }
+              check_id: { type: string }
+              kind: { type: string, enum: [deterministic, ai] }
+              result: { type: string, enum: [pass, fail, unknown] }
+              detail: { type: string }
+              model: { type: string }
+              prompt_version: { type: string }
+        chain: { $ref: "#/components/schemas/ChainProof" }
+    ChainProof:
+      type: object
+      properties:
+        epoch: { type: integer }
+        valid: { type: boolean }
+        head_hash: { type: string }
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              seq: { type: integer }
+              event_type: { type: string }
+              prev_hash: { type: string }
+              hash: { type: string }
+              at: { type: string, format: date-time }

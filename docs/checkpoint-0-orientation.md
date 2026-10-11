@@ -24,7 +24,7 @@ Stage 1 showed that the PayPal mechanics all hold, including **authorization wit
 |---|---|
 | Submission period | Oct 1, 2026 9:15am PT → **Nov 12, 2026 12:00pm PT**. Nov 12 falls after US daylight saving ends, so that's 20:00 UTC = **21:00 Lagos** (Inference: time-zone arithmetic). |
 | Judging | Dec 1–15, 2026. Winners around Dec 21. |
-| **Availability** | *"The Entrant must make the Project available free of charge and without any restriction … until the Judging Period ends."* The hosted demo must stay up **through Dec 15**. That affects the Render plan, the AG Studio 45-day trial (from first use, Oct 11 + 45 days ≈ Nov 25, so it lapses **before judging**; needs a fix, Unknown how) and the Channel3 credits. |
+| **Availability** | *"The Entrant must make the Project available free of charge and without any restriction … until the Judging Period ends."* The hosted demo must stay up **through Dec 15**. That affects the Render plan, the AG Studio 45-day trial (not started yet; started around Oct 25 it ends around Dec 9, **before judging closes**; needs a fix, Unknown how; see ADR-0009) and the Channel3 credits. |
 | Must use | PayPal developer platform (sandbox) **and** AI; *"PayPal integration is central to the project."* |
 | Existing work | Allowed if *"significantly updated after the start of the Submission Period"*. Our spikes date from Oct 2026, so it's all in-period work. |
 | Submission | Text description; a functional demo (hosted URL **or** complete run instructions); tools list; a **public** GitHub/GitLab/Bitbucket repo with an OSS licence detectable in the About section; a **YouTube** video under 3 minutes, publicly visible, showing it working, with no unlicensed third-party trademarks or music. |
