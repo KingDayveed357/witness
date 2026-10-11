@@ -24,7 +24,7 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 | 3.3 | `packages/db`: Drizzle schema + migrations; audit-chain writer; trigger blocking UPDATE/DELETE; tenant-scoped repositories | C | 3.1 | Chain verify test; UPDATE on `audit_log` fails; cross-tenant read test fails closed |
 | 3.4 | `packages/paypal`: port the spike client (exact-host guard, deterministic request ID, redaction, `paypal_calls` journal hooks) | C | 3.3 | Contract tests replay recorded Stage 1 responses |
 | 3.5 | `packages/catalog`: Channel3 normaliser (`products.retrieve`, offers → market median) + fixture catalog | C, D (API key) | 3.1 | Fixture and live modes return the same normalised shape |
-| 3.6 | `apps/api`: auth (argon2 API keys, scopes), intents (manual-policy confirm for now), `POST /purchases` with Idempotency-Key, screening → REJECT / authorize → verify → decision + approval + job | C | 3.2–3.5 | S1, S2, S5, S7 pass against the sandbox |
+| 3.6 | `apps/api`: auth (SHA-256-hashed random API keys, scopes), intents (manual-policy confirm for now), `POST /purchases` with Idempotency-Key, screening → REJECT / authorize → verify → decision + approval + job | C | 3.2–3.5 | S1, S2, S5, S7 pass against the sandbox |
 | 3.7 | `packages/executor` + `apps/worker`: `consumeApproval`, capture, void, reconciler, HOLD timeout | C | 3.6 | S8, S11 pass; no capture/void route exists (route-inventory test) |
 | 3.8 | Webhooks: Render URL (needs 5.x deploy early) **or** a tunnel for local; verify-signature, store, dedupe, re-fetch | C, D (register webhook in dashboard) | 3.6 | Webhook events recorded per step → fills the "which events fire" Unknown in spike-results |
 | 3.9 | `/verify` endpoints | C | 3.3 | Recompute matches; tampered fixture detected |

@@ -1,0 +1,21 @@
+{
+  "name": "@witness/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@witness/catalog": "workspace:*",
+    "@witness/config": "workspace:*",
+    "@witness/core": "workspace:*",
+    "@witness/db": "workspace:*",
+    "@witness/engine": "workspace:*",
+    "@witness/executor": "workspace:*",
+    "@witness/paypal": "workspace:*",
+    "pg-boss": "12.35.0",
+    "tsx": "4.23.15",
+    "zod": "4.6.5"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts"
+  }
+}

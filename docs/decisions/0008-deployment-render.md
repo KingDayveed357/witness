@@ -34,3 +34,9 @@ Cost: about $27 × ~1.7 months (late Oct → Dec 15) ≈ **$46**, inside the $50
 - No cold starts for judges or webhooks.
 - If credits run short in December, the fallback is option 3 for the last weeks.
 - The AG Studio trial is a separate availability risk (ADR-0009).
+
+## Amendment (Stage 3, 2026-10-11)
+
+- Render plan IDs are now resource-named (`0.5c-512mb` for web and worker, `0.1c-256mb` for Postgres, per render.com/docs/blueprint-spec), not "starter" or "basic". `render.yaml` omits `plan`, so new services get Render's default paid instance. **Confirm prices in the dashboard before creating**: the ~$27/month estimate above is unverified for these IDs.
+- Secrets can't use `sync: false` inside environment groups, so each service declares its own secret variables with `sync: false` (Render asks once, at creation). The web service will get no PayPal variables when it is added in Stage 5.
+- Migrations run as the API's `preDeployCommand` (`pnpm db:migrate`).

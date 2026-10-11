@@ -1,0 +1,26 @@
+{
+  "name": "@witness/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "dependencies": {
+    "@witness/catalog": "workspace:*",
+    "@witness/config": "workspace:*",
+    "@witness/core": "workspace:*",
+    "@witness/db": "workspace:*",
+    "@witness/engine": "workspace:*",
+    "@witness/paypal": "workspace:*",
+    "drizzle-orm": "0.45.3",
+    "fastify": "5.12.5",
+    "pg": "8.23.0",
+    "pg-boss": "12.35.0",
+    "tsx": "4.23.15",
+    "zod": "4.6.5"
+  },
+  "scripts": {
+    "start": "tsx src/main.ts"
+  }
+}

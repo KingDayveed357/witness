@@ -246,7 +246,7 @@ sequenceDiagram
 | Table | Key columns | Notes |
 |---|---|---|
 | `tenants` | id, name, `paypal_merchant_id` (expected payee), `allowed_retailers[]` | One for the demo; the model exists so cross-merchant checks are real (closes T10). |
-| `api_keys` | id, tenant_id, principal (`agent:…`/`ops:…`/`admin`), scopes[], `key_hash` (argon2id), revoked_at | Keys shown once at creation. |
+| `api_keys` | id, tenant_id, principal (`agent:…`/`ops:…`/`admin`), scopes[], `key_hash` (SHA-256 of a 192-bit random key), revoked_at | Keys shown once at creation. A fast hash is correct for high-entropy keys; slow hashes (argon2) are for human passwords. |
 | `shoppers` | id, tenant_id, display_name, `vault_id`, `vault_customer_id` | Vault ID from Gate 2's flow. |
 | `intents` | id, tenant_id, shopper_id, `version`, status `DRAFT/CONFIRMED/REVOKED/EXPIRED`, source_text, `policy` jsonb (Zod `PolicyV1`), `policy_digest` (SHA-256 of RFC 8785 JCS), ambiguities jsonb, compiler {model, prompt_version}, confirmed_at, expires_at, max_purchases | Immutable after CONFIRMED. A change means a new version. |
 | `purchases` | id, tenant_id, intent_id, intent_version, agent_principal, `state`, `version` (optimistic lock), cart jsonb, `cart_digest`, facts jsonb snapshot, retailer, paypal_order_id, paypal_authorization_id, paypal_capture_id, amount_cents, currency, trace_id | Unique (tenant_id, agent_principal, idempotency_key). |
@@ -286,6 +286,8 @@ apps/
   agent/      reference shopping agent: Witness tools + Channel3 search only
 packages/
   core/       policy schema, deterministic checks, cart digest, three-way match, state machine (pure, no I/O)
+  engine/     screen, create/authorize order, verify, decide, write approvals (API + worker; never captures) [ADR-0011]
+  config/     environment parsing for both processes
   executor/   capture/void/consumeApproval: imported by apps/worker ONLY (architecture import checker (`scripts/architecture-rules.ts`) rule in CI)
   paypal/     typed PayPal REST client (sandbox host guard, request-id, redaction, journal hooks)
   db/         Drizzle schema, migrations, audit-chain writer, repositories

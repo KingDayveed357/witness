@@ -4,3 +4,4 @@ export * from "./audit.ts";
 export * from "./migrate.ts";
 export * from "./purchases.ts";
 export * from "./jobs.ts";
+export * from "./keys.ts";

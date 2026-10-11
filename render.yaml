@@ -1,0 +1,69 @@
+# Render Blueprint for Witness (ADR-0008). Sandbox only: PAYPAL_BASE_URL is fixed below and the
+# code refuses any other host. Secrets use `sync: false`, so Render asks for them once at creation
+# and they are never stored in this file. The worker has no port: it is the only service that can
+# move money (ADR-0005).
+#
+# Field names checked against render.com/docs/blueprint-spec (2026-10-11). Plans are omitted so new
+# services get Render's default paid instance (web/worker 0.5c-512mb, Postgres 0.1c-256mb); confirm
+# prices in the dashboard before creating.
+
+services:
+  - type: web
+    name: witness-api
+    runtime: node
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    preDeployCommand: pnpm db:migrate
+    startCommand: pnpm --filter @witness/api start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: witness-db
+          property: connectionString
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: WITNESS_DEMO_SHOPPER_ID
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+
+  - type: worker
+    name: witness-worker
+    runtime: node
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @witness/worker start
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: witness-db
+          property: connectionString
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: LOG_LEVEL
+        value: info
+
+databases:
+  - name: witness-db
+    region: oregon
+    postgresMajorVersion: "17"
+    databaseName: witness

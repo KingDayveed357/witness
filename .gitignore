@@ -6,3 +6,4 @@ dist/
 .pgdata/
 coverage/
 *.tsbuildinfo
+.witness/

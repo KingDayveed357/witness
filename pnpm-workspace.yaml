@@ -4,3 +4,4 @@ packages:
 onlyBuiltDependencies:
   - "@embedded-postgres/windows-x64"
   - esbuild
+  - "@embedded-postgres/linux-x64"

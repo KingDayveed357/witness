@@ -10,7 +10,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "vitest run && node --test test/",
+    "test": "vitest run && node --test \"test/*.test.mjs\"",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -30,7 +30,9 @@
   "devDependencies": {
     "@types/node": "24.19.0",
     "@types/pg": "8.23.1",
+    "@witness/api": "workspace:*",
     "@witness/catalog": "workspace:*",
+    "@witness/config": "workspace:*",
     "@witness/core": "workspace:*",
     "@witness/db": "workspace:*",
     "@witness/engine": "workspace:*",

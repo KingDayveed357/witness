@@ -1,0 +1,264 @@
+// The public Witness API. It screens, authorizes and decides; it has NO capture or void route
+// (money moves only in the worker's executor; see the route-inventory test).
+
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
+import { and, asc, eq } from "drizzle-orm";
+import { uuidv5, WITNESS_NAMESPACE } from "@witness/core";
+import { QUEUES, dbOf, enqueue, lookupApiKey, schema, verifyChain, withTx } from "@witness/db";
+import {
+  agentView,
+  confirmIntent,
+  createIntent,
+  getIntent,
+  intentView,
+  purchaseView,
+  revokeIntent,
+  runScenario,
+  SCENARIOS,
+  submitPurchase,
+  type EngineDeps,
+  type Principal,
+} from "@witness/engine";
+import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
+
+export interface AppOptions {
+  deps: EngineDeps;
+  webhookId?: string | undefined;
+  demoShopperId?: string | undefined;
+  logger?: boolean | object;
+}
+
+declare module "fastify" {
+  interface FastifyRequest {
+    principal?: Principal;
+  }
+}
+
+const problem = (reply: FastifyReply, status: number, title: string, detail?: string) =>
+  reply
+    .code(status)
+    .type("application/problem+json")
+    .send({ type: "about:blank", title, status, ...(detail ? { detail } : {}), trace_id: reply.request.id });
+
+const shopperIdOf = (p: Principal) => (p.principal.startsWith("shopper:") ? p.principal.slice("shopper:".length) : null);
+
+export function buildApp(o: AppOptions): FastifyInstance {
+  const d = o.deps;
+  const app = Fastify({
+    logger: o.logger ?? false,
+    genReqId: () => `req_${Math.random().toString(36).slice(2, 12)}`,
+    bodyLimit: 64 * 1024,
+  });
+
+  const auth =
+    (...scopes: string[]) =>
+    async (req: FastifyRequest, reply: FastifyReply) => {
+      const header = req.headers.authorization ?? "";
+      const key = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+      const who = key ? await lookupApiKey(d.pool, key) : null;
+      if (!who) return problem(reply, 401, "Unauthorized", "Missing or invalid API key");
+      if (!scopes.some((s) => who.scopes.includes(s))) return problem(reply, 403, "Forbidden", `Requires one of: ${scopes.join(", ")}`);
+      req.principal = who;
+    };
+
+  app.setErrorHandler((err, req, reply) => {
+    if (err instanceof PayPalNetworkError || err instanceof PayPalHttpError) {
+      req.log.warn({ err: err.message }, "paypal error");
+      return problem(reply, 502, "PayPal unavailable", err.message);
+    }
+    const e = err as { validation?: unknown; statusCode?: number; message?: string };
+    // Fastify's own client errors (bad JSON, body too large, wrong content type) keep their 4xx.
+    if (e.validation || (e.statusCode && e.statusCode >= 400 && e.statusCode < 500)) return problem(reply, e.statusCode ?? 400, "Bad request", e.message);
+    req.log.error({ err }, "unhandled");
+    return problem(reply, 500, "Internal error");
+  });
+
+  // ---- health -----------------------------------------------------------------------------
+  app.get("/healthz", async () => ({ ok: true }));
+  app.get("/readyz", async (_req, reply) => {
+    try {
+      await d.pool.query("SELECT 1");
+      return { ok: true };
+    } catch {
+      return problem(reply, 503, "Not ready", "database unavailable");
+    }
+  });
+
+  // ---- intents ----------------------------------------------------------------------------
+  app.post<{ Body: { shopper_id?: string; policy?: unknown; source_text?: string } }>("/v1/intents", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
+    const who = req.principal!;
+    const shopperId = shopperIdOf(who) ?? req.body?.shopper_id;
+    if (!shopperId) return problem(reply, 422, "shopper_id required");
+    const r = await createIntent(d, who.tenantId, shopperId, { policy: req.body?.policy, ...(req.body?.source_text ? { source_text: req.body.source_text } : {}) });
+    if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
+    return reply.code(201).send(intentView(r.intent));
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/intents/:id", { preHandler: auth("shopper", "ops", "admin") }, async (req, reply) => {
+    const who = req.principal!;
+    const i = await getIntent(d, who.tenantId, req.params.id);
+    const sid = shopperIdOf(who);
+    if (!i || (sid && i.shopperId !== sid)) return problem(reply, 404, "Intent not found");
+    return intentView(i);
+  });
+
+  app.post<{ Params: { id: string }; Body: { policy?: unknown } }>("/v1/intents/:id/confirm", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
+    const who = req.principal!;
+    const r = await confirmIntent(d, who.tenantId, shopperIdOf(who), req.params.id, req.body?.policy);
+    if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
+    return intentView(r.intent);
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/intents/:id/revoke", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
+    const who = req.principal!;
+    const r = await revokeIntent(d, who.tenantId, shopperIdOf(who), req.params.id);
+    if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
+    return intentView(r.intent);
+  });
+
+  // ---- purchases --------------------------------------------------------------------------
+  app.post("/v1/purchases", { preHandler: auth("agent:purchase") }, async (req, reply) => {
+    const key = req.headers["idempotency-key"];
+    if (typeof key !== "string") return problem(reply, 422, "Idempotency-Key header required");
+    const r = await submitPurchase(d, req.principal!, key, req.body);
+    if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
+    return reply.code(r.replay ? 200 : 202).send(agentView(r.purchase));
+  });
+
+  const loadPurchase = async (req: FastifyRequest<{ Params: { id: string } }>) => {
+    const who = req.principal!;
+    const p = (await dbOf(d.pool).select().from(schema.purchases).where(and(eq(schema.purchases.id, req.params.id), eq(schema.purchases.tenantId, who.tenantId))).limit(1))[0];
+    if (!p) return null;
+    // Agents see only their own purchases; shoppers only purchases on their intents.
+    if (who.scopes.includes("agent:purchase") && !who.scopes.some((s) => s === "ops" || s === "admin") && p.agentPrincipal !== who.principal) return null;
+    const sid = shopperIdOf(who);
+    if (sid) {
+      const i = await getIntent(d, who.tenantId, p.intentId);
+      if (i?.shopperId !== sid) return null;
+    }
+    return p;
+  };
+
+  app.get<{ Params: { id: string } }>("/v1/purchases/:id", { preHandler: auth("agent:purchase", "shopper", "ops", "demo", "admin") }, async (req, reply) => {
+    const p = await loadPurchase(req);
+    if (!p) return problem(reply, 404, "Purchase not found");
+    const full = req.principal!.scopes.some((s) => s !== "agent:purchase");
+    return full ? purchaseView(p) : agentView(p);
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/purchases/:id/evidence", { preHandler: auth("shopper", "ops", "demo", "admin") }, async (req, reply) => {
+    const p = await loadPurchase(req);
+    if (!p) return problem(reply, 404, "Purchase not found");
+    const db = dbOf(d.pool);
+    const [intent, checks, decisions, calls] = await Promise.all([
+      getIntent(d, p.tenantId, p.intentId),
+      db.select().from(schema.checks).where(eq(schema.checks.purchaseId, p.id)).orderBy(asc(schema.checks.id)),
+      db.select().from(schema.decisions).where(eq(schema.decisions.purchaseId, p.id)).orderBy(asc(schema.decisions.id)),
+      db.select().from(schema.paypalCalls).where(eq(schema.paypalCalls.purchaseId, p.id)).orderBy(asc(schema.paypalCalls.id)),
+    ]);
+    const client = await d.pool.connect();
+    try {
+      const chain = await verifyChain(client, { purchaseId: p.id });
+      return {
+        purchase: purchaseView(p),
+        intent: intent ? intentView(intent) : null,
+        facts: p.facts,
+        checks: checks.map((c) => ({ phase: c.phase, check_id: c.checkId, kind: c.kind, result: c.result, detail: c.detail, line: c.line, at: c.createdAt })),
+        decisions: decisions.map((x) => ({ outcome: x.outcome, reasons: x.reasons, decided_by: x.decidedBy, at: x.createdAt })),
+        paypal_calls: calls.map((c) => ({ op: c.op, request_id: c.requestId, status: c.status, http_status: c.httpStatus, debug_id: c.debugId, at: c.createdAt })),
+        chain,
+      };
+    } finally {
+      client.release();
+    }
+  });
+
+  /** Live, read-only proxy of PayPal's own state, so anyone can check a verdict against PayPal. */
+  app.get<{ Params: { id: string } }>("/v1/purchases/:id/paypal", { preHandler: auth("shopper", "ops", "demo", "admin") }, async (req, reply) => {
+    const p = await loadPurchase(req);
+    if (!p) return problem(reply, 404, "Purchase not found");
+    if (!p.paypalOrderId) return { fetched_at: new Date().toISOString(), order: null, note: "No PayPal order was ever created for this purchase." };
+    const order = await d.paypal.getOrder(p.paypalOrderId);
+    const pu = order.data?.purchase_units?.[0] ?? {};
+    return {
+      fetched_at: new Date().toISOString(),
+      debug_id: order.debugId,
+      order: { id: order.data?.id, status: order.data?.status, amount: pu.amount, payee: pu.payee?.merchant_id, items: pu.items?.map((i: any) => ({ sku: i.sku, quantity: i.quantity, unit_amount: i.unit_amount })) },
+      authorizations: pu.payments?.authorizations?.map((a: any) => ({ id: a.id, status: a.status, amount: a.amount })) ?? [],
+      captures: pu.payments?.captures?.map((c: any) => ({ id: c.id, status: c.status, amount: c.amount })) ?? [],
+    };
+  });
+
+  // ---- demo -------------------------------------------------------------------------------
+  app.get("/v1/demo/scenarios", async () => Object.entries(SCENARIOS).map(([name, s]) => ({ name, title: s.title, expected: s.expected })));
+
+  app.post<{ Params: { name: string } }>("/v1/demo/scenarios/:name", { preHandler: auth("demo", "admin") }, async (req, reply) => {
+    if (!o.demoShopperId) return problem(reply, 503, "Demo not configured", "WITNESS_DEMO_SHOPPER_ID is not set");
+    const who = req.principal!;
+    const r = await runScenario(d, { ...who, principal: `agent:demo-${who.principal}` }, o.demoShopperId, req.params.name);
+    if (!r) return problem(reply, 404, "Unknown scenario", req.params.name);
+    if (r.result.kind === "error") return problem(reply, r.result.status, r.result.title, r.result.detail);
+    return reply.code(202).send({ scenario: req.params.name, expected: r.scenario.expected, intent_id: r.intentId, purchase: purchaseView(r.result.purchase) });
+  });
+
+  // ---- webhooks ---------------------------------------------------------------------------
+  app.post<{ Body: Record<string, any> }>("/v1/webhooks/paypal", async (req, reply) => {
+    if (!o.webhookId) return problem(reply, 503, "Webhooks not configured", "PAYPAL_WEBHOOK_ID is not set");
+    const h = req.headers;
+    const pick = (name: string) => (typeof h[name] === "string" ? (h[name] as string) : "");
+    const headers = {
+      auth_algo: pick("paypal-auth-algo"),
+      cert_url: pick("paypal-cert-url"),
+      transmission_id: pick("paypal-transmission-id"),
+      transmission_sig: pick("paypal-transmission-sig"),
+      transmission_time: pick("paypal-transmission-time"),
+    };
+    const event = req.body ?? {};
+    if (Object.values(headers).some((v) => !v) || typeof event.id !== "string") return problem(reply, 400, "Malformed webhook");
+
+    const verified = await d.paypal.verifyWebhookSignature(headers, o.webhookId, event, uuidv5(`verify:${headers.transmission_id}`, WITNESS_NAMESPACE));
+    const resource = event.resource ?? {};
+    await withTx(d.pool, async (tx) => {
+      const inserted = await tx.db
+        .insert(schema.webhookEvents)
+        .values({
+          eventId: verified ? event.id : `unverified:${headers.transmission_id}`,
+          eventType: String(event.event_type ?? "unknown"),
+          resourceType: typeof event.resource_type === "string" ? event.resource_type : null,
+          resourceId: typeof resource.id === "string" ? resource.id : null,
+          transmissionId: headers.transmission_id,
+          verified,
+          payload: event,
+        })
+        .onConflictDoNothing()
+        .returning({ id: schema.webhookEvents.eventId });
+      if (verified && inserted.length) await enqueue(d.boss, tx, QUEUES.webhook, { eventId: event.id }, { singletonKey: `webhook:${event.id}` });
+    });
+    if (!verified) return problem(reply, 400, "Webhook signature verification failed");
+    return { received: true };
+  });
+
+  // ---- public verification ----------------------------------------------------------------
+  app.get<{ Querystring: { epoch?: string } }>("/v1/verify/chain", async (req) => {
+    const client = await d.pool.connect();
+    try {
+      const proof = await verifyChain(client, req.query.epoch ? { epoch: Number(req.query.epoch) } : {});
+      return { epoch: proof.epoch, valid: proof.valid, count: proof.count, head_hash: proof.head_hash, first_invalid_seq: proof.first_invalid_seq };
+    } finally {
+      client.release();
+    }
+  });
+
+  app.get<{ Params: { id: string } }>("/v1/verify/purchases/:id", async (req) => {
+    const client = await d.pool.connect();
+    try {
+      const proof = await verifyChain(client, { purchaseId: req.params.id });
+      // Public: hashes and event types only, no payloads.
+      return { epoch: proof.epoch, valid: proof.valid, head_hash: proof.head_hash, events: proof.events.map((e) => ({ seq: e.seq, event_type: e.event_type, at: e.at, prev_hash: e.prev_hash, hash: e.hash })) };
+    } finally {
+      client.release();
+    }
+  });
+
+  return app;
+}
