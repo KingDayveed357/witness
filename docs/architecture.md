@@ -286,7 +286,7 @@ apps/
   agent/      reference shopping agent: Witness tools + Channel3 search only
 packages/
   core/       policy schema, deterministic checks, cart digest, three-way match, state machine (pure, no I/O)
-  executor/   capture/void/consumeApproval: imported by apps/worker ONLY (dependency-cruiser rule in CI)
+  executor/   capture/void/consumeApproval: imported by apps/worker ONLY (architecture import checker (`scripts/architecture-rules.ts`) rule in CI)
   paypal/     typed PayPal REST client (sandbox host guard, request-id, redaction, journal hooks)
   db/         Drizzle schema, migrations, audit-chain writer, repositories
   ai/         LLM interface, prompts (versioned files), Zod output schemas, fail-closed wrappers

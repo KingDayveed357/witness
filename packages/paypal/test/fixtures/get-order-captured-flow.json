@@ -1,0 +1,123 @@
+{
+  "status": 200,
+  "debugId": "REDACTED",
+  "data": {
+    "id": "9FM862648T1632338",
+    "intent": "AUTHORIZE",
+    "status": "COMPLETED",
+    "payment_source": {
+      "paypal": {
+        "email_address": "REDACTED",
+        "account_id": "REDACTED",
+        "account_status": "VERIFIED",
+        "name": {
+          "given_name": "Test",
+          "surname": "Buyer"
+        },
+        "address": {
+          "country_code": "US"
+        }
+      }
+    },
+    "purchase_units": [
+      {
+        "reference_id": "witness-default",
+        "amount": {
+          "currency_code": "USD",
+          "value": "84.00",
+          "breakdown": {
+            "item_total": {
+              "currency_code": "USD",
+              "value": "84.00"
+            }
+          }
+        },
+        "payee": {
+          "email_address": "REDACTED",
+          "merchant_id": "7L6D422CPFA9Q",
+          "display_data": {
+            "brand_name": "Witness Demo Store"
+          }
+        },
+        "custom_id": "witness:4d69105f583ee53916f7eaf44308170145a1d89a",
+        "items": [
+          {
+            "name": "Ridgeline Trail Runner, Slate Grey, US 10",
+            "unit_amount": {
+              "currency_code": "USD",
+              "value": "84.00"
+            },
+            "quantity": "1",
+            "sku": "TRL-GRY-10",
+            "category": "PHYSICAL_GOODS"
+          }
+        ],
+        "payments": {
+          "authorizations": [
+            {
+              "status": "CREATED",
+              "id": "07J946567W830432K",
+              "amount": {
+                "currency_code": "USD",
+                "value": "84.00"
+              },
+              "custom_id": "witness:4d69105f583ee53916f7eaf44308170145a1d89a",
+              "seller_protection": {
+                "status": "ELIGIBLE",
+                "dispute_categories": [
+                  "ITEM_NOT_RECEIVED",
+                  "UNAUTHORIZED_TRANSACTION"
+                ]
+              },
+              "expiration_time": "2026-11-09T14:12:37Z",
+              "links": [
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/07J946567W830432K",
+                  "rel": "self",
+                  "method": "GET"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/07J946567W830432K/capture",
+                  "rel": "capture",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/07J946567W830432K/void",
+                  "rel": "void",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/checkout/orders/9FM862648T1632338",
+                  "rel": "up",
+                  "method": "GET"
+                }
+              ],
+              "create_time": "2026-10-11T14:12:37Z",
+              "update_time": "2026-10-11T14:12:37Z"
+            }
+          ]
+        }
+      }
+    ],
+    "payer": {
+      "name": {
+        "given_name": "Test",
+        "surname": "Buyer"
+      },
+      "email_address": "REDACTED",
+      "payer_id": "REDACTED",
+      "address": {
+        "country_code": "US"
+      }
+    },
+    "create_time": "2026-10-11T14:12:37Z",
+    "update_time": "2026-10-11T14:12:37Z",
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/9FM862648T1632338",
+        "rel": "self",
+        "method": "GET"
+      }
+    ]
+  }
+}

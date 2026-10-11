@@ -1,0 +1,13 @@
+{
+  "name": "@witness/paypal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./money-movement": "./src/money-movement.ts"
+  },
+  "devDependencies": {
+    "@witness/core": "workspace:*"
+  }
+}

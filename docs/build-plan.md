@@ -19,7 +19,7 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 
 | # | Task | Owner | Depends | Acceptance |
 |---|---|---|---|---|
-| 3.1 | Monorepo scaffold (pnpm, TS strict, Vitest, ESLint, dependency-cruiser, gitleaks, GH Actions) | C | CP2 | CI green on an empty pipeline; forbidden-import rule demonstrably fails a test import |
+| 3.1 | Monorepo scaffold (pnpm, TS strict, Vitest, ESLint, architecture import checker (`scripts/architecture-rules.ts`), gitleaks, GH Actions) | C | CP2 | CI green on an empty pipeline; forbidden-import rule demonstrably fails a test import |
 | 3.2 | `packages/core`: `PolicyV1` (Zod strict), deterministic checks (all lines, all units), JCS digests, three-way match (items, amount, currency, payee, every purchase unit), state-machine table | C | 3.1 | Every `validation/REPORT.md` FAIL is a passing test; illegal transitions throw |
 | 3.3 | `packages/db`: Drizzle schema + migrations; audit-chain writer; trigger blocking UPDATE/DELETE; tenant-scoped repositories | C | 3.1 | Chain verify test; UPDATE on `audit_log` fails; cross-tenant read test fails closed |
 | 3.4 | `packages/paypal`: port the spike client (exact-host guard, deterministic request ID, redaction, `paypal_calls` journal hooks) | C | 3.3 | Contract tests replay recorded Stage 1 responses |

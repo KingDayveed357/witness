@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "debugId": "REDACTED",
+  "data": {
+    "id": "9FM862648T1632338",
+    "status": "PAYER_ACTION_REQUIRED",
+    "payment_source": {
+      "paypal": {}
+    },
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/9FM862648T1632338",
+        "rel": "self",
+        "method": "GET"
+      },
+      {
+        "href": "https://www.sandbox.paypal.com/checkoutnow?token=9FM862648T1632338",
+        "rel": "payer-action",
+        "method": "GET"
+      }
+    ]
+  }
+}

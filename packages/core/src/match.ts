@@ -22,9 +22,14 @@ const PayPalOrder = z.object({
   purchase_units: z.array(
     z.object({
       payee: z.object({ merchant_id: z.string().optional() }).loose().optional(),
+      // Optional because create-order returns a minimal representation (reference_id + payments
+      // only; Stage 1 evidence). The match itself always runs on a full GET, and treats a missing
+      // amount as a difference.
       amount: Money.extend({
         breakdown: z.record(z.string(), Money).optional(),
-      }).loose(),
+      })
+        .loose()
+        .optional(),
       items: z
         .array(
           z
@@ -83,6 +88,10 @@ export function threeWayMatch(exp: MatchExpectation, raw: unknown): string[] {
   const payee = pu.payee?.merchant_id;
   if (payee !== exp.payee_merchant_id) diffs.push(`payee: expected ${exp.payee_merchant_id}, PayPal has ${payee ?? "(none)"}`);
 
+  if (!pu.amount) {
+    diffs.push("amount: missing from PayPal's order (minimal representation?)");
+    return diffs;
+  }
   if (pu.amount.currency_code !== exp.currency) diffs.push(`currency: approved ${exp.currency}, PayPal has ${pu.amount.currency_code}`);
   const amount = cents(pu.amount.value, diffs, "amount");
   if (amount !== null && amount !== exp.amount_cents) diffs.push(`amount: approved ${exp.amount_cents} cents, PayPal has ${amount}`);

@@ -1,0 +1,22 @@
+{
+  "status": 422,
+  "debugId": "REDACTED",
+  "data": {
+    "name": "UNPROCESSABLE_ENTITY",
+    "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+    "debug_id": "f7222525e546c",
+    "details": [
+      {
+        "issue": "AUTHORIZATION_VOIDED",
+        "description": "Authorization has been voided."
+      }
+    ],
+    "links": [
+      {
+        "href": "https://developer.paypal.com/docs/api/payments/v2/#error-AUTHORIZATION_VOIDED",
+        "rel": "information_link",
+        "encType": "application/json"
+      }
+    ]
+  }
+}

@@ -16,7 +16,7 @@ Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) · Constraint: Dave's skil
 | AI | `@anthropic-ai/sdk` behind an interface (ADR-0007) | — | |
 | Catalog | `@channel3/sdk` + fixture fallback | — | **Verified**: TS SDK, `products.retrieve` (free), `products.lookup` |
 | Tests | **Vitest** (unit/integration), recorded sandbox contract tests, **Playwright** (judge flows), eval runner | Jest | Fast, ESM-native |
-| CI | GitHub Actions: typecheck, lint, Vitest, dependency-cruiser, gitleaks, eval smoke | — | |
+| CI | GitHub Actions: typecheck, lint, Vitest, architecture import checker (`scripts/architecture-rules.ts`), gitleaks, eval smoke | — | |
 | Monorepo | pnpm workspaces | npm workspaces, Turborepo | Strict dependency boundaries help the isolation rule |
 | Logging | pino (JSON), `trace_id` = purchase ID | — | |
 
@@ -28,3 +28,7 @@ Consequence: one new library family for Dave to learn (Drizzle, pg-boss). Both a
 - **Supabase (BaaS) instead of plain PostgreSQL.** Supabase is Postgres plus an auto-generated REST API, auth, row-level security and realtime. The generated API over `approvals` and `purchases` would be precisely the capture bypass the validation audit found (T9), unless every table were row-level-secured perfectly. The money logic (atomic approval consumption, state machine, journal-before-call) has to be our own server code anyway. Hosting on Render keeps the database on the same private network and Blueprint as the API and worker. Supabase used purely as hosted Postgres would also work. Not chosen, for vendor count and network locality.
 
 Decision confirmed by Dave: Fastify + PostgreSQL, no changes.
+
+## Amendment (Stage 3, 2026-10-11)
+
+dependency-cruiser was replaced by a small import checker (`scripts/architecture-rules.ts`, run by `pnpm deps:check`). dependency-cruiser can't parse TypeScript 7 yet. In a self-test it silently passed a deliberately forbidden import of the capture client, and a rule that can't fail is worse than none. The replacement is covered by tests that prove each rule fails on a violation. The transport's runtime role guard (`MoneyMovementForbidden`) is a second, independent layer.

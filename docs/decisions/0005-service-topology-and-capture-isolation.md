@@ -15,7 +15,7 @@ The core invariant must be enforced by architecture. The validation audit showed
 ## Decision (proposed)
 
 Option 2, enforced by:
-- `packages/executor` imported only by `apps/worker`, with a dependency-cruiser rule in CI;
+- `packages/executor` imported only by `apps/worker`, with a architecture import checker (`scripts/architecture-rules.ts`) rule in CI;
 - a branded `ConsumedApproval` type with no exported constructor;
 - atomic DB consumption of the approval;
 - a route-inventory test proving there's no capture/void route.

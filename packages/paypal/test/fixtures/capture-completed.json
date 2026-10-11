@@ -1,0 +1,25 @@
+{
+  "status": 201,
+  "debugId": "REDACTED",
+  "data": {
+    "id": "536404883W4495032",
+    "status": "COMPLETED",
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/captures/536404883W4495032",
+        "rel": "self",
+        "method": "GET"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/captures/536404883W4495032/refund",
+        "rel": "refund",
+        "method": "POST"
+      },
+      {
+        "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/07J946567W830432K",
+        "rel": "up",
+        "method": "GET"
+      }
+    ]
+  }
+}

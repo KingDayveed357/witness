@@ -1,0 +1,95 @@
+{
+  "status": 201,
+  "debugId": "REDACTED",
+  "data": {
+    "id": "1M060119S54869011",
+    "status": "COMPLETED",
+    "payment_source": {
+      "paypal": {
+        "email_address": "REDACTED",
+        "account_id": "REDACTED",
+        "account_status": "VERIFIED",
+        "name": {
+          "given_name": "Test",
+          "surname": "Buyer"
+        },
+        "address": {
+          "country_code": "US"
+        }
+      }
+    },
+    "purchase_units": [
+      {
+        "reference_id": "witness-default",
+        "payments": {
+          "authorizations": [
+            {
+              "status": "CREATED",
+              "id": "12H434938Y5759253",
+              "amount": {
+                "currency_code": "USD",
+                "value": "84.00"
+              },
+              "custom_id": "witness:spike-03",
+              "seller_protection": {
+                "status": "ELIGIBLE",
+                "dispute_categories": [
+                  "ITEM_NOT_RECEIVED",
+                  "UNAUTHORIZED_TRANSACTION"
+                ]
+              },
+              "expiration_time": "2026-11-09T14:15:28Z",
+              "links": [
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/12H434938Y5759253",
+                  "rel": "self",
+                  "method": "GET"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/12H434938Y5759253/capture",
+                  "rel": "capture",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/12H434938Y5759253/void",
+                  "rel": "void",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/payments/authorizations/12H434938Y5759253/reauthorize",
+                  "rel": "reauthorize",
+                  "method": "POST"
+                },
+                {
+                  "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1M060119S54869011",
+                  "rel": "up",
+                  "method": "GET"
+                }
+              ],
+              "create_time": "2026-10-11T14:15:28Z",
+              "update_time": "2026-10-11T14:15:28Z"
+            }
+          ]
+        }
+      }
+    ],
+    "payer": {
+      "name": {
+        "given_name": "Test",
+        "surname": "Buyer"
+      },
+      "email_address": "REDACTED",
+      "payer_id": "REDACTED",
+      "address": {
+        "country_code": "US"
+      }
+    },
+    "links": [
+      {
+        "href": "https://api.sandbox.paypal.com/v2/checkout/orders/1M060119S54869011",
+        "rel": "self",
+        "method": "GET"
+      }
+    ]
+  }
+}
