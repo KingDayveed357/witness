@@ -42,6 +42,12 @@ importers:
         specifier: workspace:*
         version: link:../../packages/paypal
 
+  packages/catalog:
+    dependencies:
+      '@witness/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/core:
     dependencies:
       canonicalize:
