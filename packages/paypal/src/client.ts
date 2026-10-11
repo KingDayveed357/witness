@@ -38,10 +38,16 @@ export class PayPalClient {
     return this.#t.send("GET", `/v1/customer/disputes/${encodeURIComponent(disputeId)}`, { label: "get-dispute" });
   }
 
-  /** POST /v1/notifications/verify-webhook-signature (required fields verified against the schema). */
-  async verifyWebhookSignature(h: WebhookHeaders, webhookId: string, event: unknown, requestId: string): Promise<boolean> {
+  /**
+   * POST /v1/notifications/verify-webhook-signature (required fields verified against the schema).
+   * PayPal requires webhook_event to be posted back exactly as received, so the raw body is embedded
+   * verbatim rather than re-serialised. Mock (simulator) events cannot be verified this way (PayPal docs).
+   */
+  async verifyWebhookSignature(h: WebhookHeaders, webhookId: string, rawEvent: string, requestId: string): Promise<boolean> {
+    const head = JSON.stringify({ ...h, webhook_id: webhookId });
+    const rawBody = `${head.slice(0, -1)},"webhook_event":${rawEvent}}`;
     const r = await this.#t.send<{ verification_status?: string }>("POST", "/v1/notifications/verify-webhook-signature", {
-      body: { ...h, webhook_id: webhookId, webhook_event: event },
+      rawBody,
       requestId,
       label: "verify-webhook-signature",
       allowFail: true,

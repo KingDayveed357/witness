@@ -109,9 +109,13 @@ describe("transport behaviour", () => {
   test("webhook verification is true only for verification_status SUCCESS", async () => {
     const h = { auth_algo: "SHA256withRSA", cert_url: "https://api.sandbox.paypal.com/cert", transmission_id: "t1", transmission_sig: "sig", transmission_time: "2026-10-11T00:00:00Z" };
     const ok = fakeFetch(() => ({ status: 200, body: { verification_status: "SUCCESS" } }));
-    expect(await new PayPalClient({ ...creds, fetchImpl: ok.impl }).verifyWebhookSignature(h, "WH1", { id: "E1" }, "r")).toBe(true);
-    expect(JSON.parse(ok.calls.at(-1)!.body!)).toMatchObject({ webhook_id: "WH1", transmission_id: "t1", webhook_event: { id: "E1" } });
+    // The raw event is embedded byte-for-byte (PayPal requires it posted back exactly as received).
+    const raw = `{"id":"E1","amount":{"value":"84.00"},"note":"caf\u00e9"}`;
+    expect(await new PayPalClient({ ...creds, fetchImpl: ok.impl }).verifyWebhookSignature(h, "WH1", raw, "r")).toBe(true);
+    const sent = ok.calls.at(-1)!.body!;
+    expect(sent.endsWith(`"webhook_event":${raw}}`)).toBe(true);
+    expect(JSON.parse(sent)).toMatchObject({ webhook_id: "WH1", transmission_id: "t1", webhook_event: { id: "E1" } });
     const bad = fakeFetch(() => ({ status: 200, body: { verification_status: "FAILURE" } }));
-    expect(await new PayPalClient({ ...creds, fetchImpl: bad.impl }).verifyWebhookSignature(h, "WH1", {}, "r")).toBe(false);
+    expect(await new PayPalClient({ ...creds, fetchImpl: bad.impl }).verifyWebhookSignature(h, "WH1", "{}", "r")).toBe(false);
   });
 });

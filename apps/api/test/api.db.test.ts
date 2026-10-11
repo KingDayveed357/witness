@@ -13,6 +13,7 @@ const bearer = (k: string) => ({ authorization: `Bearer ${keys[k]}` });
 beforeAll(async () => {
   h = await createHarness();
   app = buildApp({ deps: h.d, webhookId: "WH-TEST", demoShopperId: h.shopperId });
+  await app.ready();
   keys.agent = (await createApiKey(h.pool, h.tenantId, "agent:a1", ["agent:purchase"])).key;
   keys.agent2 = (await createApiKey(h.pool, h.tenantId, "agent:a2", ["agent:purchase"])).key;
   keys.shopper = (await createApiKey(h.pool, h.tenantId, `shopper:${h.shopperId}`, ["shopper"])).key;
@@ -133,6 +134,13 @@ describe("webhooks", () => {
     expect(rows[0].n).toBe(1);
     const results = await h.drain();
     expect(results.filter((x) => x.startsWith("witness-webhook"))).toEqual(["witness-webhook: no matching purchase"]);
+  });
+
+  test("the event is posted back to PayPal byte-for-byte as received", async () => {
+    const raw = `{ "id" : "WH-EVT-RAW",  "event_type":"PAYMENT.CAPTURE.COMPLETED", "resource":{"id":"CAP-R","note":"caf\u00e9"} }`;
+    const r = await app.inject({ method: "POST", url: "/v1/webhooks/paypal", headers: { ...headers("valid-signature", "t-raw"), "content-type": "application/json" }, payload: raw });
+    expect(r.statusCode).toBe(200);
+    expect(h.fake.lastVerifyBody!.endsWith(`"webhook_event":${raw}}`)).toBe(true);
   });
 
   test("ops can list recent deliveries without payloads; agents cannot", async () => {

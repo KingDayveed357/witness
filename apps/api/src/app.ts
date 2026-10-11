@@ -202,7 +202,20 @@ export function buildApp(o: AppOptions): FastifyInstance {
   });
 
   // ---- webhooks ---------------------------------------------------------------------------
-  app.post<{ Body: Record<string, any> }>("/v1/webhooks/paypal", async (req, reply) => {
+  // Webhooks get their own JSON parser that keeps the raw body: PayPal verifies the event only if it
+  // is posted back exactly as received.
+  app.register(async (scope) => {
+    scope.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
+      try {
+        (req as FastifyRequest & { rawBody?: string }).rawBody = body as string;
+        done(null, JSON.parse(body as string));
+      } catch {
+        const err = new Error("Malformed JSON") as Error & { statusCode: number };
+        err.statusCode = 400;
+        done(err, undefined);
+      }
+    });
+    scope.post<{ Body: Record<string, any> }>("/v1/webhooks/paypal", async (req, reply) => {
     if (!o.webhookId) return problem(reply, 503, "Webhooks not configured", "PAYPAL_WEBHOOK_ID is not set");
     const h = req.headers;
     const pick = (name: string) => (typeof h[name] === "string" ? (h[name] as string) : "");
@@ -216,7 +229,8 @@ export function buildApp(o: AppOptions): FastifyInstance {
     const event = req.body ?? {};
     if (Object.values(headers).some((v) => !v) || typeof event.id !== "string") return problem(reply, 400, "Malformed webhook");
 
-    const verified = await d.paypal.verifyWebhookSignature(headers, o.webhookId, event, uuidv5(`verify:${headers.transmission_id}`, WITNESS_NAMESPACE));
+    const rawEvent = (req as FastifyRequest & { rawBody?: string }).rawBody ?? JSON.stringify(event);
+    const verified = await d.paypal.verifyWebhookSignature(headers, o.webhookId, rawEvent, uuidv5(`verify:${headers.transmission_id}`, WITNESS_NAMESPACE));
     const resource = event.resource ?? {};
     await withTx(d.pool, async (tx) => {
       const inserted = await tx.db
@@ -236,6 +250,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
     });
     if (!verified) return problem(reply, 400, "Webhook signature verification failed");
     return { received: true };
+    });
   });
 
   /** Recent webhook deliveries (no payloads): lets ops confirm PayPal is reaching us and signatures verify. */

@@ -36,6 +36,8 @@ export class FakePayPal {
   #failures: { match: RegExp; mode: FailMode }[] = [];
   /** Status returned by the next capture instead of COMPLETED (e.g. "PENDING"). */
   nextCaptureStatus: string | null = null;
+  /** Raw body of the last verify-webhook-signature call, to prove events are posted back verbatim. */
+  lastVerifyBody: string | null = null;
 
   constructor(payee = "7L6D422CPFA9Q") {
     this.payee = payee;
@@ -65,6 +67,7 @@ export class FakePayPal {
       const headers = (init.headers ?? {}) as Record<string, string>;
       const requestId = headers["PayPal-Request-Id"];
       const path = url.pathname;
+      if (path === "/v1/notifications/verify-webhook-signature") this.lastVerifyBody = String(init.body);
       if (path !== "/v1/oauth2/token") this.calls.push({ method, path, ...(requestId ? { requestId } : {}) });
       if (path === "/v1/oauth2/token") return this.#json(200, { access_token: "fake-token", expires_in: 32400 });
 
