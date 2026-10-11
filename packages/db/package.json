@@ -9,6 +9,7 @@
   "dependencies": {
     "@witness/core": "workspace:*",
     "drizzle-orm": "0.45.3",
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "pg-boss": "12.35.0"
   }
 }

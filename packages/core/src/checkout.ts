@@ -70,3 +70,14 @@ export const payeeAdapter = (merchantId: string): CheckoutAdapter => ({
   name: "faulty:payee",
   buildOrder: (cart, ctx) => orderBody(cart, ctx, linesOf(cart), merchantId),
 });
+
+/** What PayPal's stored order must contain for this cart, order and payee. */
+export function expectationFor(cart: ResolvedCart, orderId: string, payeeMerchantId: string) {
+  return {
+    order_id: orderId,
+    currency: cart.currency,
+    amount_cents: cart.total_cents,
+    payee_merchant_id: payeeMerchantId,
+    items: expectedItems(cart),
+  };
+}

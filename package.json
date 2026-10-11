@@ -30,10 +30,16 @@
   "devDependencies": {
     "@types/node": "24.19.0",
     "@types/pg": "8.23.1",
+    "@witness/catalog": "workspace:*",
     "@witness/core": "workspace:*",
     "@witness/db": "workspace:*",
+    "@witness/engine": "workspace:*",
+    "@witness/executor": "workspace:*",
+    "@witness/paypal": "workspace:*",
+    "drizzle-orm": "0.45.3",
     "embedded-postgres": "17.10.0-beta.17",
     "pg": "8.23.0",
+    "pg-boss": "12.35.0",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.2"
