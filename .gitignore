@@ -2,3 +2,7 @@
 node_modules/
 spikes/out/
 .DS_Store
+dist/
+.pgdata/
+coverage/
+*.tsbuildinfo

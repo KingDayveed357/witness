@@ -1,6 +1,6 @@
 # 0003: Screen the cart before creating the PayPal order (REJECT outcome)
 
-Status: **Proposed**, needs Dave's approval at Checkpoint 2
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

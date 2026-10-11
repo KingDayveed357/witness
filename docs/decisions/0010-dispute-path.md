@@ -1,6 +1,6 @@
 # 0010: Disputes: buyer-opened in the sandbox, evidence submitted by Witness
 
-Status: **Proposed**
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

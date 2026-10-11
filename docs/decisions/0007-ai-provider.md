@@ -1,6 +1,6 @@
 # 0007: AI provider and models
 
-Status: **Proposed** · See `docs/ai-design.md`
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) · See `docs/ai-design.md`
 
 ## Context
 

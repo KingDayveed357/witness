@@ -1,6 +1,6 @@
 # 0005: Service topology: Next.js web, Fastify API, isolated executor worker
 
-Status: **Proposed**
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

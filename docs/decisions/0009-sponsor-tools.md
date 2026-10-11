@@ -1,6 +1,6 @@
 # 0009: Sponsor tools and prize focus
 
-Status: **Proposed** (default taken from Checkpoint 1, question 3: Dave may overturn)
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

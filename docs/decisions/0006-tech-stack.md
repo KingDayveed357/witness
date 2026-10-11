@@ -1,6 +1,6 @@
 # 0006: Tech stack
 
-Status: **Proposed** · Constraint: Dave's skills are TypeScript/Next.js, React, Node, Python/FastAPI, Laravel, PostgreSQL.
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) · Constraint: Dave's skills are TypeScript/Next.js, React, Node, Python/FastAPI, Laravel, PostgreSQL.
 
 | Concern | Choice | Alternatives considered | Why |
 |---|---|---|---|
@@ -21,3 +21,10 @@ Status: **Proposed** · Constraint: Dave's skills are TypeScript/Next.js, React,
 | Logging | pino (JSON), `trace_id` = purchase ID | — | |
 
 Consequence: one new library family for Dave to learn (Drizzle, pg-boss). Both are thin layers over SQL he already knows.
+
+## Alternatives reviewed at Dave's request (2026-10-11)
+
+- **FastAPI (Python) instead of Fastify.** It's a strong framework (Pydantic validation, automatic OpenAPI) and Dave knows it. It was rejected because the real choice is one language or two: AG Studio is React-only (`ag-studio-react`) and the boilerplate is Next.js, so TypeScript is needed regardless. A Python API would mean keeping Pydantic and Zod copies of the money-boundary schemas (`PolicyV1`, carts, approvals) in sync. That drift risk isn't worth taking for a solo three-week build.
+- **Supabase (BaaS) instead of plain PostgreSQL.** Supabase is Postgres plus an auto-generated REST API, auth, row-level security and realtime. The generated API over `approvals` and `purchases` would be precisely the capture bypass the validation audit found (T9), unless every table were row-level-secured perfectly. The money logic (atomic approval consumption, state machine, journal-before-call) has to be our own server code anyway. Hosting on Render keeps the database on the same private network and Blueprint as the API and worker. Supabase used purely as hosted Postgres would also work. Not chosen, for vendor count and network locality.
+
+Decision confirmed by Dave: Fastify + PostgreSQL, no changes.

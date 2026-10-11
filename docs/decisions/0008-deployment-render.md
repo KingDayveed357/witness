@@ -1,6 +1,6 @@
 # 0008: Production deployment on Render
 
-Status: **Proposed**
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

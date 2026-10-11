@@ -1,19 +1,39 @@
 {
   "name": "witness",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "description": "Witness: AI agents spend on PayPal only what the human actually asked for.",
   "type": "module",
   "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=20.12"
+    "node": ">=24"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "vitest run && node --test test/",
+    "test:unit": "vitest run --project unit",
+    "test:db": "vitest run --project db",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "deps:check": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "check": "pnpm typecheck && pnpm deps:check && pnpm test",
+    "db:dev": "tsx scripts/dev-db.ts",
+    "db:migrate": "tsx packages/db/src/migrate-cli.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "api": "tsx apps/api/src/main.ts",
+    "worker": "tsx apps/worker/src/main.ts",
     "spike:auth": "node spikes/01-auth.mjs",
     "spike:lifecycle": "node spikes/02-authorize-capture-void.mjs",
     "spike:vault": "node spikes/03-vault-authorize.mjs",
     "spike:swap": "node spikes/04-cart-swap.mjs",
     "spike:dispute": "node spikes/05-dispute.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "@types/pg": "8.23.1",
+    "dependency-cruiser": "18.4.0",
+    "embedded-postgres": "17.10.0-beta.17",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
   }
 }

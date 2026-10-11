@@ -1,6 +1,6 @@
 # 0004: Witness creates the PayPal order from its verified cart, through a checkout adapter
 
-Status: **Proposed**
+Status: **Accepted** (Dave, Checkpoint 2, 2026-10-11) 
 
 ## Context
 

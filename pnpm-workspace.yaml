@@ -1,0 +1,6 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+onlyBuiltDependencies:
+  - "@embedded-postgres/windows-x64"
+  - esbuild
