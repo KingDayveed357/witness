@@ -1,0 +1,19 @@
+{
+  "name": "witness",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Witness: AI agents spend on PayPal only what the human actually asked for.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "test": "node --test",
+    "spike:auth": "node spikes/01-auth.mjs",
+    "spike:lifecycle": "node spikes/02-authorize-capture-void.mjs",
+    "spike:vault": "node spikes/03-vault-authorize.mjs",
+    "spike:swap": "node spikes/04-cart-swap.mjs",
+    "spike:dispute": "node spikes/05-dispute.mjs"
+  }
+}
