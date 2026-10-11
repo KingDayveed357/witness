@@ -37,7 +37,9 @@ export type WorkerConfig = z.infer<typeof WorkerConfig>;
 
 /** Parse, and on failure name the missing variables without echoing any values. */
 export function parseConfig<T extends z.ZodType>(schema: T, env: NodeJS.ProcessEnv = process.env): z.infer<T> {
-  const r = schema.safeParse(env);
+  // A variable left blank in a hosting dashboard arrives as "": treat it as unset, not as a value.
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v.trim() !== ""));
+  const r = schema.safeParse(cleaned);
   if (!r.success) {
     const names = [...new Set(r.error.issues.map((i) => i.path.join(".")))].join(", ");
     throw new Error(`Invalid configuration: check ${names} (see .env.example)`);

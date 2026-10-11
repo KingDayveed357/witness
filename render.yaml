@@ -6,15 +6,18 @@
 # Field names checked against render.com/docs/blueprint-spec (2026-10-11). Plans are omitted so new
 # services get Render's default paid instance (web/worker 0.5c-512mb, Postgres 0.1c-256mb); confirm
 # prices in the dashboard before creating.
+#
+# Build uses an exact pnpm via npx (no reliance on corepack or a preinstalled pnpm); start and
+# migrate call each app’s local tsx, so pnpm is not needed at runtime.
 
 services:
   - type: web
     name: witness-api
     runtime: node
     region: oregon
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
-    preDeployCommand: pnpm --filter @witness/api migrate
-    startCommand: pnpm --filter @witness/api start
+    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile
+    preDeployCommand: cd apps/api && ./node_modules/.bin/tsx ../../packages/db/src/migrate-cli.ts
+    startCommand: cd apps/api && ./node_modules/.bin/tsx src/main.ts
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
@@ -42,8 +45,8 @@ services:
     name: witness-worker
     runtime: node
     region: oregon
-    buildCommand: corepack enable && pnpm install --frozen-lockfile
-    startCommand: pnpm --filter @witness/worker start
+    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile
+    startCommand: cd apps/worker && ./node_modules/.bin/tsx src/main.ts
     envVars:
       - key: NODE_VERSION
         value: "24"
