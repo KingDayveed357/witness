@@ -40,7 +40,7 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 | 4.3 | Injection classifier + semantic verifier wired into screening and verify | C | F5 | **Done**: three-phase screening; category judged semantically (ADR-0012) |
 | 4.4 | HOLD flow: one-time link, phone approval page, 72h auto-void | C, D (test on phone) | S3, S4, S12 | **Done (API)**: one-time links, approve re-checks PayPal, deny voids; phone page is Stage 5 |
 | 4.5 | Reference agent (Witness tools + Channel3 search only) | C | Runs the five judge scenarios via the API | **Done**: live run 2026-10-12 (Haiku, real Channel3 product, held for missing size, voided) |
-| 4.6 | Eval suite 1: runner, report, CI smoke + manual full run; adversarial suite reported separately | C, D (review cases) | Report published; targets met or gaps stated | **Done, after audit**: suite1-v2 (76 cases; v1 mislabelled 3 price controls as overpriced) 76/76 x3, 0 false captures, $0.0155. Adversarial adv-v1: 10 of 17 adversarial carts captured, gap open (docs/evals.md) |
+| 4.6 | Eval suite 1: runner, report, CI smoke + manual full run; adversarial suite reported separately | C, D (review cases) | Report published; targets met or gaps stated | **Done, after audit**: suite1-v2 (76 cases; v1 mislabelled 3 price controls as overpriced) 76/76 x3, 0 false captures, $0.0155. Adversarial: adv-v1 10/17 bad carts captured, then fixed by listing integrity (ADR-0014); after: 0/51 (adv-v1), 0/69 (adv-v2), benchmark 0/165, clean HOLD 7.1% (docs/evals.md) |
 | 4.7 | Evidence writer | C | Narrative cites only record fields; numbers template-inserted | **Done**: AI draft with template fallback |
 
 ## Stage 5: Product surface and sponsors (Oct 26–Nov 1)

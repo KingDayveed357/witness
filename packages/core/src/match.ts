@@ -158,9 +158,37 @@ export function authorizationOf(raw: unknown): AuthorizationView | null {
   return { id: a.id, status: a.status, amount_cents, currency: a.amount.currency_code };
 }
 
-export function capturesOf(raw: unknown): { id: string; status: string }[] {
+export interface CaptureView {
+  id: string;
+  status: string;
+  amount_cents: number | null;
+  currency: string;
+}
+
+export function capturesOf(raw: unknown): CaptureView[] {
   const order = parsePayPalOrder(raw);
-  return (order?.purchase_units[0]?.payments?.captures ?? []).map((c) => ({ id: c.id, status: c.status }));
+  return (order?.purchase_units[0]?.payments?.captures ?? []).map((c) => {
+    let amount_cents: number | null = null;
+    try {
+      amount_cents = toCents(c.amount.value);
+    } catch {
+      amount_cents = null;
+    }
+    return { id: c.id, status: c.status, amount_cents, currency: c.amount.currency_code };
+  });
+}
+
+/**
+ * A capture counts as the approved payment only if PayPal reports it COMPLETED for exactly the
+ * approved amount and currency. Order status alone is never treated as payment success.
+ */
+export function captureMatches(c: { status?: unknown; amount?: { value?: unknown; currency_code?: unknown } | undefined } | undefined, amountCents: number, currency: string): boolean {
+  if (!c || c.status !== "COMPLETED" || typeof c.amount?.value !== "string") return false;
+  try {
+    return toCents(c.amount.value) === amountCents && c.amount.currency_code === currency;
+  } catch {
+    return false;
+  }
 }
 
 /** The authorization must exist, be live (CREATED) and hold exactly the approved amount. */

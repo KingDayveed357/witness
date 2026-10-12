@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { authorizationDiffs, cartDigest, threeWayMatch, type MatchExpectation } from "../src/index.ts";
+import { authorizationDiffs, captureMatches, cartDigest, threeWayMatch, type MatchExpectation } from "../src/index.ts";
 
 const PAYEE = "7L6D422CPFA9Q";
 const exp: MatchExpectation = {
@@ -95,5 +95,19 @@ describe("cart digest", () => {
     expect(a).toBe(b);
     expect(cartDigest("USD", [{ sku: "A", quantity: 1, unit_cents: 101 }, { sku: "B", quantity: 2, unit_cents: 200 }])).not.toBe(a);
     expect(cartDigest("EUR", [{ sku: "A", quantity: 1, unit_cents: 100 }, { sku: "B", quantity: 2, unit_cents: 200 }])).not.toBe(a);
+  });
+});
+
+describe("captureMatches: payment success needs PayPal's capture, COMPLETED, for exactly the approved amount", () => {
+  test.each([
+    ["COMPLETED, exact amount and currency", { status: "COMPLETED", amount: { value: "84.00", currency_code: "USD" } }, true],
+    ["COMPLETED, different amount", { status: "COMPLETED", amount: { value: "8.40", currency_code: "USD" } }, false],
+    ["COMPLETED, different currency", { status: "COMPLETED", amount: { value: "84.00", currency_code: "EUR" } }, false],
+    ["COMPLETED, no amount in the response", { status: "COMPLETED" }, false],
+    ["PENDING, exact amount", { status: "PENDING", amount: { value: "84.00", currency_code: "USD" } }, false],
+    ["malformed amount", { status: "COMPLETED", amount: { value: "84.0.0", currency_code: "USD" } }, false],
+    ["nothing", undefined, false],
+  ])("%s → %s", (_n, c, ok) => {
+    expect(captureMatches(c, 8400, "USD")).toBe(ok);
   });
 });

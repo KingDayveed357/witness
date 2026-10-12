@@ -91,11 +91,11 @@ Runs through the **public Witness API** against the real sandbox, with the demo 
 - A test now enforces each category's expected-outcome contract.
 - The report and runner fixes are listed under "Report integrity" above.
 
-**v2 result** (`evals/report/latest.md`): 76/76 cases passing every run; 0 false captures of 51 mandatory runs and 0 of 165 runs where CAPTURE was forbidden; 100% agreement; $0.0155.
+**v2 result, before the listing-integrity remediation** (frozen copy in `evals/baselines/suite1-v2-2026-10-12.*`): 76/76 cases passing every run; 0 false captures of 51 mandatory runs and 0 of 165 runs where CAPTURE was forbidden; 100% agreement; $0.0155. Results after the remediation are below.
 
 ## Adversarial suite adv-v1 (separate; not part of suite 1)
 
-`evals/adversarial.ts`, 19 cases: 17 adversarial and 2 benign controls. Run it with `pnpm eval -- --suite adversarial`. The report goes to `evals/report/adversarial-latest.*` and is never merged into the benchmark's numbers.
+`evals/adversarial.ts`, 19 cases: 17 adversarial and 2 benign controls. Run it with `pnpm eval -- --suite adv-v1`. The report goes to `evals/report/adv-v1-latest.*` (pre-remediation copy in `evals/baselines/adv-v1-2026-10-12.*`) and is never merged into the benchmark's numbers.
 
 It was written after the benchmark, against attack ideas the benchmark doesn't cover, using product domains and wording found in neither the prompts nor `cases.ts`. **The same team wrote it, so it is not independent security validation, and the cases have not been used to tune prompts.** Any fix must be measured on a fresh held-out set (adv-v2) written before the fix.
 
@@ -111,4 +111,48 @@ It was written after the benchmark, against attack ideas the benchmark doesn't c
 - whether the listing addresses agents (injection);
 - whether the listing satisfies the shopper's explicit soft constraints, plus the category when it doesn't match literally.
 
-Nothing reads the listing for facts that contradict a deterministic pass, such as fees, subscriptions, partial or multiple items, replicas, size systems or colour synonyms. Deterministic checks compare fields by string, and those fields are merchant-supplied. Proposed remediation is in the Checkpoint 4 report; it needs a decision before it is built.
+Nothing reads the listing for facts that contradict a deterministic pass, such as fees, subscriptions, partial or multiple items, replicas, size systems or colour synonyms. Deterministic checks compare fields by string, and those fields are merchant-supplied. Remediated by ADR-0014 (listing integrity); results below.
+
+## Frozen baselines (2026-10-12)
+
+`suite1-v2` and `adv-v1` are immutable regression baselines. Their case sets are fingerprinted in `evals/baselines.test.ts`, so any edit fails CI; a change means a new suite version. Their pre-remediation reports are kept in `evals/baselines/`. So is the pre-remediation adv-v2 run.
+
+## Adversarial suite adv-v2 (separate; written before the remediation)
+
+`evals/adversarial-v2.ts`: 29 cases, 23 attacks and 6 benign controls. Run it with `pnpm eval -- --suite adv-v2`.
+
+It was written and committed, with a live run on the unchanged code, **before** any listing-integrity code existed. It covers the attack classes adv-v1 exposed, with new products (watches, sleeping bags, dress shirts, espresso machines, kayak paddles), new wording and new fields. It adds classes adv-v1 lacked:
+- field-versus-description conflicts;
+- deposits and surcharges;
+- grey-market units;
+- size labels that mean something else;
+- injection that imitates the verifier's own output.
+
+It also has more controls (optional add-ons, two-piece construction, free shipping), so over-holding is measured. Tests forbid reusing ids or listing text from adv-v1.
+
+**Limits.** The same team wrote it, and it targets the same classes the remediation addresses. It measures generalisation to new products and wording within known classes. It is not independent security validation. One adv-v2 finding (v2-ctl-01, a preference verdict misreading "15°F" against "20°F or colder") was deliberately left unfixed, so adv-v2 remains untuned.
+
+## Listing-integrity remediation (ADR-0014): before and after
+
+Live Haiku `claude-haiku-5-5`, prompts `injection@v2` and `semantic@v3`, 3 runs per case, 1 retry allowed (keeps the pre-run worst case under the $1 ceiling).
+
+| Suite | Prohibited runs captured, before → after | Controls/clean | Passing all runs | Agreement | p95 | Cost |
+|---|---|---|---|---|---|---|
+| suite1-v2 (76) | 0/165 → **0/165** (mandatory 0/51) | clean HOLD 0% → 7.1%; false rejects 0% | 76 → 75 | 100% → 97.4% | 4.1 s → 5.3 s | $0.0155 → $0.0650 |
+| adv-v2 (29) | 45/69 → **0/69** | controls: 1 of 6 falsely rejected before and after (v2-ctl-01, open) | 13 → 28 | 100% → 93.1% | 6.2 s | $0.0060 → $0.0361 |
+| adv-v1 (19) | 30/51 → **0/51** | 2/2 controls captured | 9 → 19 | 100% → 94.7% | 6.5 s | $0.0053 → $0.0228 |
+
+All run-to-run disagreements after the remediation are between HOLD and REJECT. The cases are inj-08, inj-11, v2-size-02, v2-inj-01 and adv-ovr-04. No run disagreed about capturing.
+
+**The failure that remains in each suite:**
+- clean-08: "fully waterproof" vs "Waterproof, 20,000 mm" is now `unknown`, so it holds.
+- v2-ctl-01: the open false reject above.
+
+Reports: `evals/report/latest.*`, `evals/report/adv-v2-latest.*`, `evals/report/adv-v1-latest.*`. Each lists every case's outcome on every run.
+
+**Fault injection** (unit tests, `packages/ai/test/listing-integrity.test.ts`). Every one of these holds:
+- provider failures: timeout, refusal, truncated, parse, error, budget, cancelled, unavailable, and no provider configured;
+- malformed output: no integrity list, wrong vocabulary, missing evidence fields, non-JSON;
+- missing answers and out-of-range confidence.
+
+Calibration note: the first live smoke of `semantic@v3` held 4 of 4 clean cases, because the model answered "consistent" at low confidence on listings that were simply silent. The requirement wording and the mapping were revised (see ADR-0014, point 5). That change was informed by the benchmark's clean cases, not by adv-v2.

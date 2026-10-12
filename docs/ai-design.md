@@ -45,6 +45,7 @@ AI turns language into structure and judges fuzzy constraints. **Deterministic c
 | Use | `violates` with confidence ≥ 0.8 → REJECT. `unknown`, or confidence below threshold → HOLD. All `satisfies` with confidence ≥ 0.8 → passes |
 | Example | "no wool" vs "merino blend": violates; quote "merino wool blend" |
 | Fails closed | Error → HOLD |
+| Listing integrity (since `semantic@v3`, [ADR-0014](decisions/0014-listing-integrity.md)) | The same call also answers one `integrity` entry per requirement derived from the policy (item and quantity, charges, consistency, category, size, brand, colour). Answers are `consistent`, `conflict` or `unclear`, each with `evidence_field` and `evidence_quote`. A quote must come from the named field, and be at least 12 characters or that field's whole value. Grounded, confident conflict on a hard requirement → REJECT; any other concern → HOLD; `consistent` → no effect. |
 
 ### 4. Evidence writer (disputes)
 

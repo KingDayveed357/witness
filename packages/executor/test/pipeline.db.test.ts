@@ -197,6 +197,17 @@ describe("S11 failures and reconciliation", () => {
     await reconcile(h.d, { tenantId: h.tenantId, purchaseId: p.id });
     expect((await state(p.id)).state).toBe("CAPTURED");
   });
+
+  test("a COMPLETED capture for a different amount is never recorded as CAPTURED, and is never retried", async () => {
+    const p = await buy(await confirmedIntent());
+    h.fake.nextCaptureValue = "1.00";
+    await h.drain();
+    expect((await state(p.id)).state).toBe("NEEDS_RECONCILE");
+    const result = await reconcile(h.d, { tenantId: h.tenantId, purchaseId: p.id });
+    expect(result).toMatch(/operator review/);
+    expect((await state(p.id)).state).toBe("NEEDS_RECONCILE");
+    expect(h.fake.count("POST", CAPTURES)).toBe(1);
+  });
 });
 
 describe("binding and staleness (validation T6, T9, X3)", () => {

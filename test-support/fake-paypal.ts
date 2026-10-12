@@ -36,6 +36,8 @@ export class FakePayPal {
   #failures: { match: RegExp; mode: FailMode }[] = [];
   /** Status returned by the next capture instead of COMPLETED (e.g. "PENDING"). */
   nextCaptureStatus: string | null = null;
+  /** Amount value PayPal records for the next capture instead of the requested one (anomaly test). */
+  nextCaptureValue: string | null = null;
   /** Raw body of the last verify-webhook-signature call, to prove events are posted back verbatim. */
   lastVerifyBody: string | null = null;
 
@@ -131,10 +133,12 @@ export class FakePayPal {
       if (a.status === "CAPTURED") return { status: 422, body: { name: "UNPROCESSABLE_ENTITY", details: [{ issue: "AUTHORIZATION_ALREADY_CAPTURED", description: "Authorization has been previously captured." }] } };
       const status = this.nextCaptureStatus ?? "COMPLETED";
       this.nextCaptureStatus = null;
-      const c: Capture = { id: this.#id("CAP"), authId: a.id, status, currency: body.amount.currency_code, value: body.amount.value };
+      const value = this.nextCaptureValue ?? body.amount.value;
+      this.nextCaptureValue = null;
+      const c: Capture = { id: this.#id("CAP"), authId: a.id, status, currency: body.amount.currency_code, value };
       this.captures.set(c.id, c);
       if (body.final_capture) a.status = "CAPTURED";
-      return { status: 201, body: { id: c.id, status: c.status, amount: body.amount, final_capture: body.final_capture } };
+      return { status: 201, body: { id: c.id, status: c.status, amount: { currency_code: c.currency, value }, final_capture: body.final_capture } };
     }
     if (method === "POST" && (m = path.match(/^\/v2\/payments\/authorizations\/([^/]+)\/void$/))) {
       const a = this.auths.get(m[1]!);

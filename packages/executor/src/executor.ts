@@ -3,7 +3,7 @@
 // every money call before making it, and reconciles anything whose outcome is unknown.
 
 import { and, desc, eq } from "drizzle-orm";
-import { authorizationDiffs, authorizationOf, capturesOf, expectationFor, fromCents, paypalRequestId, threeWayMatch, type PurchaseState, type ResolvedCart } from "@witness/core";
+import { authorizationDiffs, authorizationOf, captureMatches, capturesOf, expectationFor, fromCents, paypalRequestId, threeWayMatch, type PurchaseState, type ResolvedCart } from "@witness/core";
 import {
   QUEUES,
   dbOf,
@@ -89,13 +89,15 @@ async function applyCaptureResult(d: ExecutorDeps, job: PurchaseJob, journalId: 
     await journalFinish(tx.db, journalId, { status: "SUCCEEDED", httpStatus: r.status, debugId: r.debugId, response: r.data });
     const status: string = r.data?.status;
     const captureId: string | undefined = r.data?.id;
-    const to: PurchaseState = status === "COMPLETED" ? "CAPTURED" : status === "PENDING" ? "CAPTURE_PENDING" : status === "DECLINED" || status === "FAILED" ? "CAPTURE_DECLINED" : "NEEDS_RECONCILE";
+    // COMPLETED alone is not enough: the capture must be for exactly the approved amount.
+    const exact = captureMatches(r.data, p.amountCents!, p.currency!);
+    const to: PurchaseState = status === "COMPLETED" ? (exact ? "CAPTURED" : "NEEDS_RECONCILE") : status === "PENDING" ? "CAPTURE_PENDING" : status === "DECLINED" || status === "FAILED" ? "CAPTURE_DECLINED" : "NEEDS_RECONCILE";
     await transition(tx, {
       tenantId: p.tenantId,
       purchaseId: p.id,
       from: "CAPTURING",
       to,
-      event: to === "CAPTURED" ? "purchase.captured" : `capture.${String(status).toLowerCase()}`,
+      event: to === "CAPTURED" ? "purchase.captured" : status === "COMPLETED" ? "capture.amount_unverified" : `capture.${String(status).toLowerCase()}`,
       payload: { capture_id: captureId, capture_status: status, amount_cents: p.amountCents, debug_id: r.debugId },
       patch: captureId ? { paypalCaptureId: captureId } : {},
     });
@@ -275,7 +277,8 @@ async function reconcileMoney(d: ExecutorDeps, job: PurchaseJob, p: PurchaseRow)
   }
   const captures = capturesOf(order);
   const auth = authorizationOf(order);
-  const completed = captures.find((c) => c.status === "COMPLETED");
+  const completedAny = captures.find((c) => c.status === "COMPLETED");
+  const completed = captures.find((c) => c.status === "COMPLETED" && c.amount_cents === p.amountCents && c.currency === p.currency);
   const pending = captures.find((c) => c.status === "PENDING");
   const declined = captures.find((c) => c.status === "DECLINED" || c.status === "FAILED");
 
@@ -291,6 +294,8 @@ async function reconcileMoney(d: ExecutorDeps, job: PurchaseJob, p: PurchaseRow)
   type Plan = { to: PurchaseState; event: string; patch?: PurchasePatch; followUp?: boolean } | { retry: "capture" | "void" } | { wait: string };
   let plan: Plan;
   if (completed) plan = { to: "CAPTURED", event: "purchase.captured", patch: { paypalCaptureId: completed.id } };
+  // Money moved, but not the approved amount: never call that CAPTURED, never retry; an operator decides.
+  else if (completedAny) plan = { wait: `completed capture ${completedAny.id} is ${completedAny.amount_cents} ${completedAny.currency}, not the approved ${p.amountCents} ${p.currency}; operator review` };
   else if (pending) plan = p.state === "CAPTURE_PENDING" ? { wait: "capture still pending" } : { to: "CAPTURE_PENDING", event: "capture.pending", patch: { paypalCaptureId: pending.id } };
   else if (declined) plan = { to: "CAPTURE_DECLINED", event: "capture.declined", patch: { paypalCaptureId: declined.id } };
   else if (auth?.status === "VOIDED") plan = p.state === "NEEDS_RECONCILE" ? { to: "VOIDED", event: "purchase.voided" } : { wait: `authorization voided while ${p.state}` };
