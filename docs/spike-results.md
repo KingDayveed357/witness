@@ -88,7 +88,8 @@ Diagnosis:
 | `custom_id` max **255** chars (the spike truncates to 127, which is safe but stricter than needed) | **Verified** | Orders v2 schema `purchase_unit_request.custom_id` |
 | Up to 10 purchase units per order | **Verified** | Orders v2 schema |
 | Webhook event types available: `CHECKOUT.ORDER.APPROVED/COMPLETED/VOIDED`, `PAYMENT.AUTHORIZATION.CREATED/VOIDED`, `PAYMENT.CAPTURE.COMPLETED/PENDING/DECLINED/DENIED/REFUNDED/REVERSED`, `CUSTOMER.DISPUTE.CREATED/UPDATED/RESOLVED`, `VAULT.PAYMENT-TOKEN.*` | **Verified** (`GET /v1/notifications/webhooks-event-types`) | `…15-17-29-551Z-02-list-webhook-event-types.json` |
-| **Which events actually fire for each step, in what order, and how fast** | **Unknown, needs a test**: no webhook is registered (`GET /v1/notifications/webhooks` → `[]`), and that needs a public HTTPS URL | Stage 3, on the Render deploy |
+| **Which events actually fire for each step** | **Verified on the Render deploy** (2026-10-12): a vault-authorized order sends `PAYMENT.AUTHORIZATION.CREATED`; capture sends `PAYMENT.CAPTURE.COMPLETED`; void sends `PAYMENT.AUTHORIZATION.VOIDED`. **No `CHECKOUT.ORDER.*` events arrived for vault orders** within 45 s (the buyer never approves in a browser, so plausibly none are sent; Inference). All 7 deliveries passed signature verification; 0 rejected | `docs/evidence/render-sandbox-run.md` |
+| Webhook timing and ordering | **Partly known**: deliveries arrived within the 45 s window (7 of an expected 8; the 8th was likely still in flight). Order is not guaranteed by PayPal, which is why Witness re-fetches state instead of trusting event order | same |
 | Sandbox dispute timings | **Unknown, needs a test** | Gate 4 |
 
 ## Changes made in Stage 1

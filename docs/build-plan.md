@@ -26,10 +26,10 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 | 3.5 | `packages/catalog`: Channel3 normaliser (`products.retrieve`, offers → market median) + fixture catalog | C, D (API key) | 3.1 | Fixture and live modes return the same normalised shape |
 | 3.6 | `apps/api`: auth (SHA-256-hashed random API keys, scopes), intents (manual-policy confirm for now), `POST /purchases` with Idempotency-Key, screening → REJECT / authorize → verify → decision + approval + job | C | 3.2–3.5 | S1, S2, S5, S7 pass against the sandbox |
 | 3.7 | `packages/executor` + `apps/worker`: `consumeApproval`, capture, void, reconciler, HOLD timeout | C | 3.6 | S8, S11 pass; no capture/void route exists (route-inventory test) |
-| 3.8 | Webhooks: Render URL (needs 5.x deploy early) **or** a tunnel for local; verify-signature, store, dedupe, re-fetch | C, D (register webhook in dashboard) | 3.6 | Webhook events recorded per step → fills the "which events fire" Unknown in spike-results |
+| 3.8 | Webhooks: Render URL (needs 5.x deploy early) **or** a tunnel for local; verify-signature, store, dedupe, re-fetch | C, D (register webhook in dashboard) | 3.6 | Webhook events recorded per step → fills the "which events fire" Unknown in spike-results | **Done 2026-10-12**: 7 verified deliveries on Render, 0 rejected |
 | 3.9 | `/verify` endpoints | C | 3.3 | Recompute matches; tampered fixture detected |
-| 3.10 | Gate 4 completion: buyer-opened dispute + `spike:dispute next` | D (open dispute), C | — | BRIEF Gate 4 updated |
-| 3.11 | Early Render deploy (api + worker + db) for the webhook URL | C, D (Render account, credits) | 3.6 | `/readyz` green on Render |
+| 3.10 | Gate 4 completion: buyer-opened dispute + `spike:dispute next` | D (open dispute), C | — | BRIEF Gate 4 updated | **Open**: waiting for the buyer-opened dispute |
+| 3.11 | Early Render deploy (api + worker + db) for the webhook URL | C, D (Render account, credits) | 3.6 | `/readyz` green on Render | **Done 2026-10-12**: https://witness-api-kee6.onrender.com, acceptance 5/5 |
 
 ## Stage 4: AI layer and agent (Oct 21–25)
 
