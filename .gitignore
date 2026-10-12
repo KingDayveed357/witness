@@ -12,3 +12,6 @@ evals/report/smoke-latest.*
 evals/report/partial-latest.*
 evals/report/adv-v*-fake-latest.*
 evals/report/adv-v*-partial-latest.*
+
+# Next.js build output
+apps/web/.next/

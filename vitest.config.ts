@@ -1,9 +1,14 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+
+// `server-only` throws outside React Server Components; in tests it is a no-op.
+const serverOnlyStub = fileURLToPath(new URL("./test-support/server-only-stub.ts", import.meta.url));
 
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: { alias: { "server-only": serverOnlyStub } },
         test: {
           name: "unit",
           include: ["packages/*/test/**/*.test.ts", "apps/*/test/**/*.test.ts", "test-support/**/*.test.ts", "evals/**/*.test.ts"],

@@ -13,7 +13,7 @@
     "test": "vitest run && node --test \"test/*.test.mjs\"",
     "test:unit": "vitest run --project unit",
     "test:db": "vitest run --project db",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
     "deps:check": "tsx scripts/check-architecture.ts",
     "check": "pnpm typecheck && pnpm deps:check && pnpm test",
     "db:dev": "tsx scripts/dev-db.ts",
