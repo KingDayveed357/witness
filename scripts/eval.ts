@@ -4,7 +4,7 @@
 //   pnpm eval -- --smoke               # LIVE Haiku, 18 representative cases x 1 run
 //   pnpm eval -- --only injection      # LIVE partial run (a category or case id)
 //   pnpm eval                          # LIVE full run: every benchmark case x 3 runs
-//   pnpm eval -- --suite adversarial   # LIVE adversarial suite (separate report, never merged)
+//   pnpm eval -- --suite adv-v2        # LIVE adversarial suite adv-v2 (or adv-v1; separate reports, never merged)
 // Options: --runs N, --max-spend USD (default 1.00), --max-calls N, --concurrency N (default 3),
 //          --yes (skip the "type yes" confirmation for live runs)
 //
@@ -33,6 +33,7 @@ import { ROOT, loadDotEnv } from "@witness/config";
 import type { ProductFacts } from "@witness/core";
 import { CASES, EVAL_NOW, SUITE_VERSION } from "../evals/cases.ts";
 import { ADV_CASES, ADV_SUITE_VERSION } from "../evals/adversarial.ts";
+import { ADV2_CASES, ADV2_SUITE_VERSION } from "../evals/adversarial-v2.ts";
 import { harnessAi } from "../test-support/fake-ai.ts";
 
 loadDotEnv();
@@ -70,12 +71,13 @@ interface RunCase {
   probes?: string | undefined;
 }
 
-const suite = opt("suite", "benchmark");
-if (suite !== "benchmark" && suite !== "adversarial") throw new Error(`--suite must be benchmark or adversarial, not ${suite}`);
-if (suite === "adversarial" && smoke) throw new Error("--smoke applies to the benchmark only");
-const adversarial = suite === "adversarial";
-const suiteVersion = adversarial ? ADV_SUITE_VERSION : SUITE_VERSION;
-const pool: RunCase[] = adversarial ? ADV_CASES : CASES;
+const suiteArg = opt("suite", "benchmark");
+const suite = suiteArg === "adversarial" ? "adv-v1" : suiteArg;
+if (suite !== "benchmark" && suite !== "adv-v1" && suite !== "adv-v2") throw new Error(`--suite must be benchmark, adv-v1 or adv-v2, not ${suiteArg}`);
+const adversarial = suite !== "benchmark";
+if (adversarial && smoke) throw new Error("--smoke applies to the benchmark only");
+const suiteVersion = suite === "adv-v1" ? ADV_SUITE_VERSION : suite === "adv-v2" ? ADV2_SUITE_VERSION : SUITE_VERSION;
+const pool: RunCase[] = suite === "adv-v1" ? ADV_CASES : suite === "adv-v2" ? ADV2_CASES : CASES;
 const cases = pool.filter((c) => (smoke ? SMOKE_IDS.includes(c.id) : !only || c.category === only || c.id === only));
 if (!cases.length) throw new Error("no cases selected");
 const kind = fake ? "offline-fake" : smoke ? "live-smoke" : only || runs < 3 ? "live-partial" : "live-full";
@@ -86,7 +88,7 @@ const KIND_LABEL: Record<string, string> = {
   "live-partial": `PARTIAL REAL-MODEL EVALUATION of the ${suiteName}: ${cases.length} of ${pool.length} cases x ${runs} run(s).`,
   "live-full": `FULL REAL-MODEL EVALUATION of the ${suiteName}: all ${cases.length} cases x ${runs} runs.`,
 };
-const stem = (adversarial ? "adversarial-" : "") + { "offline-fake": "fake-latest", "live-smoke": "smoke-latest", "live-partial": "partial-latest", "live-full": "latest" }[kind]!;
+const stem = (adversarial ? `${suite}-` : "") + { "offline-fake": "fake-latest", "live-smoke": "smoke-latest", "live-partial": "partial-latest", "live-full": "latest" }[kind]!;
 
 // ---- dry run: exact call count and prompt sizes, at no cost ------------------------------------
 const dry = harnessAi();
@@ -182,7 +184,7 @@ const passing = cases.filter((c) => (results.get(c.id) ?? []).every((r) => ok(c,
 const latencies = allRuns.filter(({ r }) => r.ai_called).map(({ r }) => r.ai_ms);
 // Mandatory zero: CAPTURE on any run where CAPTURE was forbidden, in the injection and substitution
 // categories (benchmark) or in every adversarial category except the controls.
-const mandatoryCats = adversarial ? new Set(["misleading_category", "listing_injection", "ambiguous_identity", "constraint_override"]) : new Set(["injection", "substitution"]);
+const mandatoryCats = adversarial ? new Set(pool.map((c) => c.category).filter((c) => c !== "control")) : new Set(["injection", "substitution"]);
 const mandatoryRuns = badCartRuns.filter(({ c }) => mandatoryCats.has(c.category));
 const mandatoryFalseCaptures = mandatoryRuns.filter(({ r }) => r.outcome === "CAPTURE").length;
 const failureCounts = allRuns.flatMap(({ r }) => r.failures).reduce<Record<string, number>>((m, f) => ((m[f] = (m[f] ?? 0) + 1), m), {});

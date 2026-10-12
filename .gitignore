@@ -10,5 +10,5 @@ coverage/
 evals/report/fake-latest.*
 evals/report/smoke-latest.*
 evals/report/partial-latest.*
-evals/report/adversarial-fake-latest.*
-evals/report/adversarial-partial-latest.*
+evals/report/adv-v*-fake-latest.*
+evals/report/adv-v*-partial-latest.*
