@@ -7,7 +7,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { UnavailableLlm, evaluateScreen, type LlmClient } from "@witness/ai";
 import type { ProductFacts } from "@witness/core";
-import { demoPolicy, nowOf, type EngineDeps, type Principal } from "@witness/engine";
+import { demoPolicy, nowOf, revokeIntent, type EngineDeps, type Principal } from "@witness/engine";
+import { appendAudit, startEpoch, withTx } from "@witness/db";
 
 type Auth = (...scopes: string[]) => (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>;
 type Problem = (reply: FastifyReply, status: number, title: string, detail?: string) => FastifyReply;
@@ -57,9 +58,9 @@ async function ledger(d: EngineDeps, tenantId: string, limit: number) {
  * with no consumed single-use approval: the BRIEF's success metric, computed from the database
  * rather than asserted.
  */
-export async function stats(d: EngineDeps, tenantId: string | null) {
-  const scope = tenantId ? "WHERE p.tenant_id = $1" : "";
-  const args = tenantId ? [tenantId] : [];
+export async function stats(d: EngineDeps, tenantId: string, since?: Date) {
+  const scope = since ? "WHERE p.tenant_id = $1 AND p.created_at >= $2" : "WHERE p.tenant_id = $1";
+  const args: unknown[] = since ? [tenantId, since] : [tenantId];
   const byState = await d.pool.query(`SELECT p.state, count(*)::int AS n, coalesce(sum(p.amount_cents), 0)::bigint AS cents FROM purchases p ${scope} GROUP BY p.state`, args);
   const blocked = await d.pool.query(
     `SELECT coalesce(pc.check_id, 'other') AS reason, count(*)::int AS n, coalesce(sum(p.amount_cents), 0)::bigint AS cents
@@ -85,6 +86,7 @@ export async function stats(d: EngineDeps, tenantId: string | null) {
     blocked_by_reason: blocked.rows.map((r) => ({ reason: r.reason as string, count: r.n as number, amount_cents: Number(r.cents) })),
     unauthorized_captures: unauthorized.rows[0]!.n as number,
     by_state: states,
+    ...(since ? { since: since.toISOString() } : {}),
   };
 }
 
@@ -179,10 +181,29 @@ export function registerConsole(app: FastifyInstance, d: EngineDeps, auth: Auth,
   });
 
   // ---- demo: aggregates and the judge's own listing --------------------------------------------
+  // Judge counters count from the start of the current audit epoch (a demo reset starts a new one).
   app.get("/v1/demo/stats", { preHandler: auth("demo", "admin") }, async (req) => {
-    const s = await stats(d, tenantOf(req));
+    const e = (await d.pool.query("SELECT epoch, started_at FROM audit_epochs ORDER BY epoch DESC LIMIT 1")).rows[0];
+    const s = await stats(d, tenantOf(req), e && e.epoch > 1 ? (e.started_at as Date) : undefined);
     const { by_state: _omit, ...publicStats } = s;
     return publicStats;
+  });
+
+  /**
+   * Admin only (architecture §"Demo reset without breaking the chain"): release every held
+   * authorization by revoking its intent (the executor voids it on PayPal), then start a new audit
+   * epoch. Nothing is deleted; earlier epochs stay verifiable. Not exposed through the web app.
+   */
+  app.post("/v1/demo/reset", { preHandler: auth("admin") }, async (req, reply) => {
+    const t = tenantOf(req);
+    const held = await d.pool.query("SELECT DISTINCT intent_id FROM purchases WHERE tenant_id = $1 AND state = 'HELD'", [t]);
+    for (const r of held.rows) await revokeIntent(d, t, null, r.intent_id as string);
+    const epoch = await withTx(d.pool, async (tx) => {
+      const n = await startEpoch(tx, `demo reset by ${(req.principal as Principal).principal}`);
+      await appendAudit(tx, { tenantId: t, purchaseId: null, eventType: "demo.reset", payload: { epoch: n, holds_released: held.rowCount } });
+      return n;
+    });
+    return reply.code(202).send({ epoch, holds_released: held.rowCount, note: "Held authorizations are being voided by the executor; earlier audit epochs remain verifiable." });
   });
 
   const perMinute = o.demoScreensPerMinute ?? 30;

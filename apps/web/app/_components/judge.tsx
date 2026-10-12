@@ -39,7 +39,7 @@ function Counters() {
   const blocked = (s.rejected?.amount_cents ?? 0) + (s.voided?.amount_cents ?? 0);
   return (
     <div className="kpis" aria-live="polite">
-      <div className="card kpi"><div className="v">{s.purchases}</div><div className="l">Purchases screened</div></div>
+      <div className="card kpi"><div className="v">{s.purchases}</div><div className="l">Purchases screened{s.since ? " since the last demo reset" : ""}</div></div>
       <div className="card kpi"><div className="v">{s.captured.count}</div><div className="l">Captured ({money(s.captured.amount_cents)})</div></div>
       <div className="card kpi"><div className="v">{money(blocked)}</div><div className="l">Blocked (rejected + voided)</div></div>
       <div className="card kpi"><div className="v">{s.held.count}</div><div className="l">Held for the shopper</div></div>

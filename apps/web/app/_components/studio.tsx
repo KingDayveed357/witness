@@ -4,13 +4,13 @@
 // custom "evidence chain" widget that verifies a purchase's hash-chained audit trail live.
 import { useEffect, useMemo, useState } from "react";
 import { AgStudio, createWidgets } from "ag-studio-react";
-import { AgStudioAiModule, AgStudioLicenseManager, AgStudioModuleRegistry, createAiHarness, studioTheme, type AgReportState, type AgWidgetParams } from "ag-studio";
-import { PROMPT_STARTERS, witnessAdapter } from "./studio-ai";
+import { AgStudioAiModule, AgStudioLicenseManager, AgStudioModuleRegistry, studioTheme, type AgReportState, type AgWidgetParams } from "ag-studio";
+import { witnessHarness } from "./studio-ai";
 
-// Studio Agent Framework: the built-in agents (lead, data, page, widget, planning) on Haiku via this
-// site's server route; see lib/server/studio-ai.ts.
+// Studio Agent Framework: a Witness lead and analyst (custom agents) working with Studio's built-in
+// agents, all on Haiku via this site's server route (studio-ai.ts, lib/server/studio-ai.ts).
 AgStudioModuleRegistry.registerModules([AgStudioAiModule]);
-const ai = ({ api }: { api: any }) => createAiHarness(api, { adapter: witnessAdapter(), primary: "lead", promptStarters: PROMPT_STARTERS });
+const ai = witnessHarness;
 import { api, checkLabel, errText, money, tone } from "../../lib/client";
 
 interface Data {

@@ -3,7 +3,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { createApiKey } from "@witness/db";
+import { createApiKey, verifyChain } from "@witness/db";
 import { demoPolicy } from "@witness/engine";
 import { PolicyV1 } from "@witness/core";
 import { buildApp } from "../src/app.ts";
@@ -165,5 +165,42 @@ describe("demo routes", () => {
     expect(third.statusCode).toBe(429);
     expect(Number(third.headers["retry-after"])).toBeGreaterThan(0);
     await limited.close();
+  });
+});
+
+describe("demo reset (admin only)", () => {
+  test("releases held authorizations through the executor, starts a new audit epoch, keeps history verifiable", async () => {
+    const admin = (await createApiKey(h.pool, h.tenantId, "admin:a1", ["admin"])).key;
+    const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/hold", headers: bearer("demo") });
+    const heldId = r.json().purchase.id;
+    await h.drain();
+    expect((await app.inject({ method: "GET", url: `/v1/purchases/${heldId}`, headers: bearer("demo") })).json().state).toBe("HELD");
+
+    expect((await app.inject({ method: "POST", url: "/v1/demo/reset", headers: bearer("demo") })).statusCode).toBe(403);
+    expect((await app.inject({ method: "POST", url: "/v1/demo/reset", headers: bearer("ops") })).statusCode).toBe(403);
+    const before = (await h.pool.query("SELECT max(epoch)::int AS e FROM audit_epochs")).rows[0].e;
+
+
+    const reset = await app.inject({ method: "POST", url: "/v1/demo/reset", headers: { authorization: `Bearer ${admin}` } });
+    expect(reset.statusCode).toBe(202);
+    expect(reset.json().epoch).toBe(before + 1);
+    expect(reset.json().holds_released).toBeGreaterThanOrEqual(1);
+
+    await h.drain();
+    expect((await app.inject({ method: "GET", url: `/v1/purchases/${heldId}`, headers: bearer("demo") })).json().state).toBe("VOIDED");
+    expect(h.fake.auths.get((await app.inject({ method: "GET", url: `/v1/purchases/${heldId}`, headers: bearer("ops") })).json().paypal.authorization_id)!.status).toBe("VOIDED");
+
+    // Judge counters start again from the new epoch; nothing was deleted.
+    const s = (await app.inject({ method: "GET", url: "/v1/demo/stats", headers: bearer("demo") })).json();
+    expect(s.purchases).toBe(0);
+    expect(s.since).toBeDefined();
+    expect((await app.inject({ method: "GET", url: "/v1/console/stats", headers: bearer("ops") })).json().purchases).toBeGreaterThan(0);
+    const client = await h.pool.connect();
+    try {
+      expect((await verifyChain(client, { epoch: before })).valid).toBe(true);
+      expect((await verifyChain(client, { epoch: before + 1 })).valid).toBe(true);
+    } finally {
+      client.release();
+    }
   });
 });
