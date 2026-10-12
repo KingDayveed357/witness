@@ -48,6 +48,11 @@ describe("architecture rules", () => {
     expect(probe("apps/web/src/bad7.ts", `import { PayPalClient } from "@witness/paypal";`)).toHaveLength(1);
   });
 
+  test("the AI package can never reach PayPal, the database or the executor", () => {
+    expect(probe("packages/ai/src/bad8.ts", `import { PayPalClient } from "@witness/paypal";`).map((v) => v.rule)).toEqual(["ai-has-no-money-access"]);
+    expect(probe("packages/ai/src/bad9.ts", `import { withTx } from "@witness/db";`)).toHaveLength(1);
+  });
+
   test("commented-out imports are ignored", () => {
     expect(importsOf(`// import x from "@witness/paypal/money-movement";\n/* import y from "@witness/executor" */\nimport z from "zod";`)).toEqual(["zod"]);
   });

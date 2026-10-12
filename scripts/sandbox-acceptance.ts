@@ -7,7 +7,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT } from "@witness/config";
 
-const BASE = process.env.WITNESS_API ?? "http://127.0.0.1:4000";
+const BASE = process.env.WITNESS_API ?? "https://witness-api-kee6.onrender.com";
 const keys = JSON.parse(readFileSync(process.env.WITNESS_KEYS_FILE ?? join(ROOT, ".witness", "dev-keys.json"), "utf8"));
 const TERMINAL = new Set(["REJECTED", "AUTH_FAILED", "CAPTURED", "VOIDED", "CAPTURE_DECLINED", "HELD"]);
 

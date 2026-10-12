@@ -1,0 +1,225 @@
+// The four AI components (docs/ai-design.md). Each returns structured, validated results; anything
+// the model gets wrong or can't do becomes "unknown" (HOLD) or an ambiguity for the shopper. AI can
+// only make a decision stricter: it never loosens a deterministic check, and it never sets amounts,
+// SKUs, merchants or quantities.
+
+import { z } from "zod";
+import { CURRENCIES, PolicyV1, numberToCents, type Check, type ProductFacts, type ResolvedCart } from "@witness/core";
+import type { AiResult, LlmClient } from "./llm.ts";
+import { PROMPTS } from "./prompts.ts";
+
+export const THRESHOLDS = { injection: 0.5, semantic: 0.8, intentReview: 0.6 } as const;
+
+const conf = z.number();
+const inUnit = (n: number) => n >= 0 && n <= 1;
+const aiMeta = (r: AiResult<unknown>) => ({ kind: "ai" as const, model: r.model ?? "none", prompt_version: r.promptVersion });
+
+// ---------------------------------------------------------------------------------------------
+// Injection classifier
+// ---------------------------------------------------------------------------------------------
+
+export const InjectionOut = z.object({
+  suspected: z.boolean(),
+  confidence: conf,
+  spans: z.array(z.object({ text: z.string(), reason: z.string() })),
+});
+
+const listingText = (f: ProductFacts) =>
+  [f.title, f.brand, f.category, ...Object.entries(f.attributes).map(([k, v]) => `${k}: ${v}`), f.description].filter(Boolean).join("\n");
+
+export async function checkInjection(ai: LlmClient, facts: ProductFacts[]): Promise<Check> {
+  const input = facts
+    .map((f) => `<listing product_id="${f.product_id}">\n<title>${f.title}</title>\n<details>\n${listingText(f)}\n</details>\n</listing>`)
+    .join("\n\n");
+  const r = await ai.structured(PROMPTS.injection, input, InjectionOut);
+  if (!r.ok || !inUnit(r.value.confidence)) {
+    return { id: "ai.injection", result: "unknown", detail: `injection check unavailable (${r.ok ? "confidence out of range" : r.reason}); a human must decide`, ...aiMeta(r) };
+  }
+  if (r.value.suspected && r.value.confidence >= THRESHOLDS.injection) {
+    const span = r.value.spans[0];
+    return { id: "ai.injection", result: "unknown", detail: `possible prompt injection in listing text${span ? `: "${span.text.slice(0, 160)}" (${span.reason})` : ""}`, ...aiMeta(r) };
+  }
+  return { id: "ai.injection", result: "pass", detail: `no manipulation found in listing text (confidence ${r.value.confidence.toFixed(2)})`, ...aiMeta(r) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Semantic verifier
+// ---------------------------------------------------------------------------------------------
+
+export const SemanticOut = z.object({
+  verdicts: z.array(
+    z.object({
+      constraint_id: z.string(),
+      product_id: z.string(),
+      verdict: z.enum(["satisfies", "violates", "unknown"]),
+      confidence: conf,
+      evidence_quote: z.string(),
+    }),
+  ),
+});
+
+const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, facts: ProductFacts[]): Promise<Check[]> {
+  if (!policy.soft.length) return [];
+  const input = JSON.stringify(
+    {
+      constraints: policy.soft.map((s) => ({ id: s.id, text: s.text })),
+      products: facts.map((f) => ({ product_id: f.product_id, title: f.title, brand: f.brand ?? null, category: f.category ?? null, attributes: f.attributes, description: f.description ?? null })),
+    },
+    null,
+    2,
+  );
+  const r = await ai.structured(PROMPTS.semantic, input, SemanticOut);
+  const out: Check[] = [];
+  for (const s of policy.soft) {
+    for (const f of facts) {
+      const id = `ai.soft:${s.id}`;
+      if (!r.ok) {
+        out.push({ id, line: f.product_id, result: "unknown", detail: `"${s.text}": semantic check unavailable (${r.reason})`, ...aiMeta(r) });
+        continue;
+      }
+      const v = r.value.verdicts.find((x) => x.constraint_id === s.id && x.product_id === f.product_id);
+      if (!v || !inUnit(v.confidence)) {
+        out.push({ id, line: f.product_id, result: "unknown", detail: `"${s.text}": no usable verdict from the model`, ...aiMeta(r) });
+        continue;
+      }
+      // The quote must really appear in the facts, otherwise the verdict isn't grounded.
+      const grounded = v.evidence_quote.trim().length > 0 && normalise(listingText(f)).includes(normalise(v.evidence_quote));
+      const confident = v.confidence >= THRESHOLDS.semantic;
+      let result: Check["result"] = "unknown";
+      if (v.verdict === "violates" && confident && grounded) result = "fail";
+      else if (v.verdict === "satisfies" && confident && grounded) result = "pass";
+      const why = v.verdict === "unknown" ? "facts don't settle it" : !grounded ? `model said ${v.verdict} but its quote isn't in the listing` : !confident ? `model said ${v.verdict} with low confidence ${v.confidence.toFixed(2)}` : `${v.verdict}: "${v.evidence_quote.slice(0, 120)}"`;
+      out.push({ id, line: f.product_id, result, detail: `"${s.text}": ${why}`, ...aiMeta(r) });
+    }
+  }
+  return out;
+}
+
+/** All AI checks for a cart that passed deterministic screening. Runs the two calls in parallel. */
+export async function aiScreen(ai: LlmClient, policy: PolicyV1, cart: ResolvedCart, facts: Map<string, ProductFacts>): Promise<Check[]> {
+  const lineFacts = cart.lines.map((l) => facts.get(l.product_id)).filter((f): f is ProductFacts => Boolean(f));
+  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), checkSoftConstraints(ai, policy, lineFacts)]);
+  return [injection, ...soft];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Intent compiler
+// ---------------------------------------------------------------------------------------------
+
+export const IntentOut = z.object({
+  category: z.string().nullable(),
+  max_total: z.number().nullable(),
+  currency: z.string(),
+  quantity: z.number().nullable(),
+  retailers: z.array(z.string()),
+  excluded_colors: z.array(z.string()),
+  size: z.string().nullable(),
+  brand: z.string().nullable(),
+  soft: z.array(z.object({ id: z.string(), text: z.string() })),
+  substitution: z.enum(["deny", "hold", "same_category_under_max"]),
+  expires_in_days: z.number().nullable(),
+  ambiguities: z.array(z.object({ field: z.string(), question: z.string(), options: z.array(z.string()) })),
+  confidence: conf,
+});
+
+export interface Ambiguity {
+  field: string;
+  question: string;
+  options: string[];
+}
+
+export type CompileResult =
+  | { kind: "ok"; draft: Record<string, unknown>; complete: boolean; ambiguities: Ambiguity[]; confidence: number; compiler: { model: string; prompt_version: string; latency_ms: number } }
+  | { kind: "error"; reason: string };
+
+/** Money amounts written in the shopper's own words, found deterministically. */
+export function amountsInText(text: string): number[] {
+  const re = /(?:[$€£]\s?|\b(?:usd|eur|gbp)\s?)(\d{1,7}(?:[.,]\d{1,2})?)|(\d{1,7}(?:[.,]\d{1,2})?)\s?(?:dollars?|bucks|usd|eur|euros?|gbp|pounds?)\b/gi;
+  const out: number[] = [];
+  for (const m of text.matchAll(re)) out.push(Number((m[1] ?? m[2])!.replace(",", ".")));
+  return [...new Set(out)];
+}
+
+export async function compileIntent(
+  ai: LlmClient,
+  text: string,
+  ctx: { now: Date; defaultRetailers: string[] },
+): Promise<CompileResult> {
+  const r = await ai.structured(PROMPTS.intent, `<request>\n${text}\n</request>`, IntentOut);
+  if (!r.ok) return { kind: "error", reason: r.reason };
+  const v = r.value;
+  const amb: Ambiguity[] = v.ambiguities.map((a) => ({ field: a.field, question: a.question, options: a.options.slice(0, 4) }));
+  const ask = (field: string, question: string, options: string[] = []) => {
+    if (!amb.some((a) => a.field === field)) amb.push({ field, question, options });
+  };
+
+  // Money: the model's reading must agree with what the shopper actually wrote.
+  let max_total_cents: number | undefined;
+  const written = amountsInText(text);
+  if (v.max_total == null) ask("max_total_cents", "What is the most you want to spend in total?");
+  else {
+    try {
+      max_total_cents = numberToCents(v.max_total);
+    } catch {
+      ask("max_total_cents", "Please confirm the spending limit.");
+    }
+    if (written.length > 1) ask("max_total_cents", `Your request mentions several amounts (${written.join(", ")}). Which one is the total limit?`, written.map(String));
+    else if (written.length === 1 && max_total_cents !== undefined && Math.round(written[0]! * 100) !== max_total_cents) {
+      ask("max_total_cents", `Your request says ${written[0]}, but it was read as ${v.max_total}. Which is the limit?`, [String(written[0]), String(v.max_total)]);
+      max_total_cents = undefined;
+    }
+  }
+
+  const currency = (CURRENCIES as readonly string[]).includes(v.currency.toUpperCase()) ? v.currency.toUpperCase() : undefined;
+  if (!currency) ask("currency", `Which currency? (${CURRENCIES.join(", ")})`, [...CURRENCIES]);
+
+  let retailers = v.retailers.map((x) => x.trim().toLowerCase()).filter(Boolean);
+  if (!retailers.length) {
+    retailers = ctx.defaultRetailers;
+    ask("retailers", "Which stores may the agent buy from?", ctx.defaultRetailers);
+  }
+  if (!v.category) ask("category", "What kind of product should the agent buy?");
+  if (v.confidence < THRESHOLDS.intentReview) ask("policy", "Please review every field: the request was hard to interpret.");
+
+  const quantity = v.quantity != null && Number.isInteger(v.quantity) && v.quantity >= 1 ? v.quantity : 1;
+  const days = v.expires_in_days != null && v.expires_in_days > 0 ? Math.min(v.expires_in_days, 90) : 7;
+  const draft: Record<string, unknown> = {
+    version: 1,
+    ...(v.category ? { category: v.category } : {}),
+    retailers,
+    ...(max_total_cents !== undefined ? { max_total_cents } : {}),
+    ...(currency ? { currency } : {}),
+    quantity,
+    hard: { excluded_colors: v.excluded_colors, ...(v.size ? { size: v.size } : {}), ...(v.brand ? { brand: v.brand } : {}) },
+    soft: v.soft.map((s, i) => ({ id: (s.id.replace(/[^\w]/g, "_").slice(0, 40) || `soft_${i + 1}`), text: s.text.slice(0, 200) })),
+    substitution: v.substitution === "same_category_under_max" && !v.category ? "hold" : v.substitution,
+    expires_at: new Date(ctx.now.getTime() + days * 86_400_000).toISOString(),
+    max_purchases: 1,
+  };
+  const complete = PolicyV1.safeParse(draft).success;
+  return { kind: "ok", draft, complete, ambiguities: amb, confidence: v.confidence, compiler: { model: r.model, prompt_version: r.promptVersion, latency_ms: r.latencyMs } };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Evidence writer
+// ---------------------------------------------------------------------------------------------
+
+export const EvidenceOut = z.object({ narrative: z.string(), cited_fields: z.array(z.string()) });
+
+export const EVIDENCE_PLACEHOLDERS = ["amount", "currency", "order_id", "authorization_id", "capture_id", "policy_digest", "captured_at", "intent_text"] as const;
+export type EvidenceValues = Record<(typeof EVIDENCE_PLACEHOLDERS)[number], string>;
+
+/** Draft a dispute narrative. Numbers and IDs are inserted by code; the model may not write any. */
+export async function writeEvidence(ai: LlmClient, record: Record<string, unknown>, values: EvidenceValues): Promise<{ kind: "ok"; text: string; model: string; prompt_version: string } | { kind: "error"; reason: string }> {
+  const r = await ai.structured(PROMPTS.evidence, JSON.stringify(record, null, 2), EvidenceOut);
+  if (!r.ok) return { kind: "error", reason: r.reason };
+  const n = r.value.narrative;
+  const unknown = [...n.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]!).filter((p) => !(EVIDENCE_PLACEHOLDERS as readonly string[]).includes(p));
+  if (unknown.length) return { kind: "error", reason: `unknown placeholders: ${unknown.join(", ")}` };
+  if (/\d/.test(n.replace(/\{\{\w+\}\}/g, ""))) return { kind: "error", reason: "the draft wrote numbers itself instead of using placeholders" };
+  if (/(?<!not (?:cryptographically )?)\bsigned\b/i.test(n)) return { kind: "error", reason: 'the draft calls the instruction "signed"' };
+  const text = n.replace(/\{\{(\w+)\}\}/g, (_, k: keyof EvidenceValues) => values[k]);
+  return { kind: "ok", text, model: r.model, prompt_version: r.promptVersion };
+}

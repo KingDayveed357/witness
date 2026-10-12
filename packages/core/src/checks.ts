@@ -12,6 +12,10 @@ export interface Check {
   result: CheckResult;
   detail: string;
   line?: string;
+  /** Deterministic unless set. AI checks also record which model and prompt version produced them. */
+  kind?: "deterministic" | "ai";
+  model?: string;
+  prompt_version?: string;
 }
 
 export const PurchaseRequest = z.strictObject({
