@@ -81,7 +81,7 @@ The screen-and-verify path makes 2 LLM calls in parallel (injection + semantic).
 ## Implementation notes (Stage 4, 2026-10-12)
 
 - **Where it lives:** `packages/ai`, which has no access to PayPal, the database or the executor (architecture rule `ai-has-no-money-access`). Prompts are in `packages/ai/prompts/*.v1.md`.
-- **Provider:** `AnthropicLlm` uses structured outputs (`output_config.format` via `betaZodOutputFormat`), re-validates every result locally, sets effort explicitly (`medium`), and enables server-side fallback (`fallbacks: "default"`). The model that actually answered is stored with each check. Without `ANTHROPIC_API_KEY`, `UnavailableLlm` makes every AI check fail closed (HOLD).
+- **Provider (updated 2026-10-12):** `AnthropicProvider` uses **`claude-haiku-5-5` only**, structured outputs (`output_config.format` via `zodOutputFormat`), effort `low`, and **no fallback**. Results are re-validated locally; the model, prompt version, usage, cost, retries and cache status are recorded per call. Without `ANTHROPIC_API_KEY`, `UnavailableProvider` makes every AI check fail closed (HOLD). Details: `docs/ai-operations.md`.
 - **Screening runs in three phases:** deterministic checks under the intent lock; AI checks outside any transaction; the decision in a second transaction.
 - **Category:** judged semantically when the catalog's taxonomy doesn't literally match ([ADR-0012](decisions/0012-category-judged-semantically.md)).
 - **Intent compiler:** amounts the model reads are cross-checked against amounts found deterministically in the shopper's own words. Disagreement becomes an ambiguity, never a value. Drafts may be incomplete; confirmation validates the full policy.

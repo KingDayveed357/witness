@@ -66,5 +66,5 @@ Runs through the **public Witness API** against the real sandbox, with the demo 
 
 - **Cases:** `evals/cases.ts` (typed TypeScript, not JSONL, so they're reviewable as code), with shape and distribution tests in `evals/cases.test.ts`.
 - **What runs:** `evaluateScreen` (`packages/ai/src/evaluate.ts`), the engine's exact screening composition. `evals/engine-agreement.test.ts` checks it agrees with the engine on every demo scenario.
-- **Run:** `pnpm eval` (needs `ANTHROPIC_API_KEY`; 72 cases × 3 runs ≈ 216 screenings, most making 2 model calls). The report goes to `evals/report/latest.md` and `.json`.
+- **Run:** see `docs/ai-operations.md`. The actual call count, derived from the code, is **84 model calls per pass** (55 injection + 29 semantic; 17 cases are rejected deterministically without any AI call), so the full protocol makes **252 calls**, not the ~430 estimated earlier. Only a full live run writes `evals/report/latest.*`. Smoke, partial and fake runs write `smoke-latest`, `partial-latest` and `fake-latest` (gitignored).
 - **`pnpm eval -- --fake`** checks the runner with a deterministic fake model. It writes `fake-latest.*` (gitignored) and is labelled as **not a measurement**. CI runs it on every push. The real eval is a manual CI job using the `ANTHROPIC_API_KEY` repository secret.

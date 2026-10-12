@@ -113,15 +113,20 @@ async function scenario(name: string) {
   record("S7", "Idempotency-Key replay", "same purchase, one order; different body 422", p, pp, ok, `HTTP ${first.status}, ${second.status}, ${conflict.status}; create-order calls: ${creates}`);
 }
 
-// HOLD with a real authorization, then the shopper revokes -> void (also cleans up the hold)
-{
-  const { purchase: p, intentId } = await scenario("hold");
+// HOLD scenarios: funds genuinely authorized while held; then the shopper revokes -> void (cleanup).
+// "suspicious" (overpriced vs market) and "injection" (AI classifier) exercise the AI path.
+for (const [id, name, title] of [
+  ["HOLD", "hold", "Missing size -> HOLD (funds held), shopper revokes"],
+  ["SUSPICIOUS", "overpriced", "Nearly 2x market price -> HOLD, shopper revokes"],
+  ["INJECTION", "injection", "Listing text addresses AI agents -> HOLD, shopper revokes"],
+] as const) {
+  const { purchase: p, intentId } = await scenario(name);
   const held = await paypalState(p.id);
-  const heldOk = p.state === "HELD" && held.authorizations[0].status === "CREATED" && held.captures.length === 0;
+  const heldOk = p.state === "HELD" && held.authorizations?.[0]?.status === "CREATED" && held.captures?.length === 0;
   await call("POST", `/v1/intents/${intentId}/revoke`, keys.shopper);
   const after = await settle(p.id);
   const pp = await paypalState(p.id);
-  record("HOLD", "Missing size -> HOLD (funds held), shopper revokes", "HELD with auth CREATED, then VOIDED", after, pp, heldOk && after.state === "VOIDED" && pp.authorizations[0].status === "VOIDED", `while held: auth ${held.authorizations[0].status}`);
+  record(id, title, "HELD with auth CREATED, then VOIDED", after, pp, heldOk && after.state === "VOIDED" && pp.authorizations?.[0]?.status === "VOIDED", `while held: ${p.state}, auth ${held.authorizations?.[0]?.status ?? "-"}; reasons: ${p.reasons.join("; ").slice(0, 200)}`);
 }
 
 // Webhooks: PayPal delivers asynchronously, so give it a moment, then report what arrived.

@@ -29,3 +29,11 @@ Disclosure: this recommendation is written by a Claude model. The provider-neutr
 
 - One API key, one SDK, one set of refusal semantics to handle.
 - Budget: about 430 calls per full eval run. The cost is measured on the first run and reported before CI runs it automatically.
+
+## Amendment (Stage 4 verification, 2026-10-12, at Dave's direction)
+
+- **Model:** `claude-haiku-5-5` only, for every real-model path (API, evals, reference agent), enforced by an allowlist in `packages/ai/src/models.ts`. Opus, Sonnet and other models are rejected as configuration errors.
+- **Fallback:** removed. No server-side fallback is requested (Haiku 5.5 doesn't offer one), and a response from any other model is treated as a failure.
+- **Effort:** `low`, with thinking left adaptive.
+- **Measured** in the full live evaluation (72 cases × 3 runs, 252 calls): 0 false captures, 72/72 cases passing every run, 100% agreement, screening p95 2.2 s, estimated cost $0.0133. See `evals/report/latest.md` and `docs/ai-operations.md`.
+- **Provider abstraction for future BYOM/BYOK:** [ADR-0013](0013-byom-byok-foundations.md).

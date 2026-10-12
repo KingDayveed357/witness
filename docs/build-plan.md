@@ -39,8 +39,8 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 | 4.2 | Intent compiler + shopper confirm flow (API) | C | F1, F2 | **Done**: POST /v1/intents {text}; incomplete drafts block confirmation |
 | 4.3 | Injection classifier + semantic verifier wired into screening and verify | C | F5 | **Done**: three-phase screening; category judged semantically (ADR-0012) |
 | 4.4 | HOLD flow: one-time link, phone approval page, 72h auto-void | C, D (test on phone) | S3, S4, S12 | **Done (API)**: one-time links, approve re-checks PayPal, deny voids; phone page is Stage 5 |
-| 4.5 | Reference agent (Witness tools + Channel3 search only) | C | Runs the five judge scenarios via the API | **Done**: tools tested against the real API; a live run needs ANTHROPIC_API_KEY |
-| 4.6 | Eval suite 1: 72 cases, runner, report, CI smoke + manual full run | C, D (review cases) | Report published; targets met or gaps stated | **Runner + 72 cases done**: real-model numbers need ANTHROPIC_API_KEY |
+| 4.5 | Reference agent (Witness tools + Channel3 search only) | C | Runs the five judge scenarios via the API | **Done**: live run 2026-10-12 (Haiku, real Channel3 product, held for missing size, voided) |
+| 4.6 | Eval suite 1: 72 cases, runner, report, CI smoke + manual full run | C, D (review cases) | Report published; targets met or gaps stated | **Done**: full live eval 2026-10-12, 72/72 x3, 0 false captures, $0.0133 (evals/report/latest.md) |
 | 4.7 | Evidence writer | C | Narrative cites only record fields; numbers template-inserted | **Done**: AI draft with template fallback |
 
 ## Stage 5: Product surface and sponsors (Oct 26–Nov 1)
