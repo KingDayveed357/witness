@@ -45,16 +45,16 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 
 ## Stage 5: Product surface and sponsors (Oct 26–Nov 1)
 
-| # | Task | Owner | Acceptance |
-|---|---|---|---|
-| 5.1 | `apps/web` from the PayPal AG Grid boilerplate; auth for shopper, ops and demo | C | — |
-| 5.2 | AG Studio console: theme, ledger, HOLD queue, **custom evidence-chain widget**, Studio Agent Framework agent ("blocked value by reason") | C, D (AG licence) | Prize-criteria checklist from ADR-0009 met |
-| 5.3 | Shopper page (intent, confirm, receipts, mobile HOLD approval) | C | Usable on a phone |
-| 5.4 | Judge landing page: 5 scenarios, free-text intent, "try to beat it", live counters, reset, "fetch from PayPal" links | C | A fresh person runs everything from the URL alone |
-| 5.5 | Dispute view in the console | C | Evidence approve → submitted |
-| 5.6 | Render Blueprint (web, api, worker, db, env groups) + docker-compose | C, D | Deployed; local compose works from the README |
-| 5.7 | Postman collection (every endpoint + judge scenarios) | C | Runs green against the hosted API |
-| 5.8 | README: judge quickstart, architecture diagram, eval table, honest limits, tools list | C, D (review) | — |
+| # | Task | Owner | Acceptance | Status (2026-10-13) |
+|---|---|---|---|---|
+| 5.1 | `apps/web` (Next.js 16, same stack as the PayPal AG Grid boilerplate; ADR-0015); auth for shopper, ops and demo | C | — | **Done**: allowlisted server-side key proxy; console password + signed cookie, closed by default |
+| 5.2 | AG Studio console: theme, ledger, HOLD queue, **custom evidence-chain widget**, Studio Agent Framework agent ("blocked value by reason") | C, D (AG licence) | Prize-criteria checklist from ADR-0009 met | **Done (trial licence)**: Witness theme (light/dark), ledger, HOLD queue, blocked value by reason, custom evidence-chain widget; built-in agents on Haiku via a server route built the "blocked value by reason" widget (13 turns, $0.012). Licence for judging still open (D) |
+| 5.3 | Shopper page (intent, confirm, receipts, mobile HOLD approval) | C | Usable on a phone | **Done**: verified at 390 px (no horizontal scroll); one-time token stripped from the address bar |
+| 5.4 | Judge landing page: scenarios, free-text intent, "try to beat it", live counters, reset, "fetch from PayPal" links | C | A fresh person runs everything from the URL alone | **Done locally**: verified headless in Edge on the real sandbox. Reset is admin-only (`pnpm demo:reset`, new audit epoch); the page has a view reset. "Fresh person" check needs the hosted URL (D) |
+| 5.5 | Dispute view in the console | C | Evidence approve → submitted | **Built, tested against the PayPal fake**: attach, draft, approve, submit once, sandbox steps marked simulated, all audited. Live proof needs a buyer-opened sandbox dispute (D, Gate 4) |
+| 5.6 | Render Blueprint (web, api, worker, db, env groups) + docker-compose | C, D | Deployed; local compose works from the README | **Blueprint done**: filtered installs verified in a clean worktree. Not deployed (awaiting push approval). Compose written, not run (no Docker on the build machine) |
+| 5.7 | Postman collection (every endpoint + judge scenarios) | C | Runs green against the hosted API | **Green locally**: 55/55 requests, 91/91 assertions on the real sandbox. Hosted run after deploy |
+| 5.8 | README: judge quickstart, architecture diagram, eval table, honest limits, tools list | C, D (review) | — | **Done**, for D's review (live URL to add at deploy) |
 
 ## Stage 6: Hardening (Nov 2–4)
 

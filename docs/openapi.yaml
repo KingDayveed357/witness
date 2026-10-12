@@ -1,9 +1,9 @@
 openapi: 3.1.0
 info:
   title: Witness API
-  version: 0.1.0-draft
+  version: 0.2.0
   description: |
-    Draft for Checkpoint 2. Witness screens agent carts against a confirmed intent,
+    Stage 5. Witness screens agent carts against a confirmed intent,
     authorizes on PayPal (sandbox), and decides CAPTURE, HOLD, VOID or REJECT.
     There is deliberately no capture or void endpoint: money moves only in the
     isolated executor, by consuming a single-use approval (docs/architecture.md §2).
@@ -247,59 +247,199 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ChainProof" }
+  /intents/{intentId}/summary:
+    get:
+      tags: [intents]
+      summary: What the shopper confirmed (read-only view for agents)
+      security: [{ apiKey: [agent:purchase] }, { apiKey: [shopper] }, { apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/intentId" }]
+      responses:
+        "200": { description: "id, status, source_text, policy" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /purchases/{purchaseId}/hold-link:
+    post:
+      tags: [holds]
+      summary: Issue the one-time link for a held purchase (shown once; only its hash is stored)
+      security: [{ apiKey: [shopper] }, { apiKey: [admin] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200": { description: "path, token, expires_at" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /holds/{purchaseId}:
+    get:
+      tags: [holds]
+      summary: View a held purchase (signed-in shopper, or the one-time token)
+      security: [{ apiKey: [shopper] }, { holdToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200": { description: "purchase_id, state, reasons, amount, items, retailer, auto_void_at, resolution" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "410": { $ref: "#/components/responses/Problem" }
+  /me/purchases:
+    get:
+      tags: [purchases]
+      summary: The signed-in shopper's receipts (purchases on their own intents, with hold deadlines)
+      security: [{ apiKey: [shopper] }]
+      responses:
+        "200": { description: "{ purchases: [...] }" }
+  /purchases/{purchaseId}/dispute-evidence/draft:
+    post:
+      tags: [console]
+      summary: Draft dispute evidence from the record (never sent to PayPal from here)
+      security: [{ apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200": { description: "text, source (ai | template), values" }
+        "409": { $ref: "#/components/responses/Problem" }
   /console/purchases:
     get:
       tags: [console]
+      summary: Ledger rows for the tenant, newest first, with the primary (first non-passing) check
       security: [{ apiKey: [ops] }]
       parameters:
-        - { name: state, in: query, schema: { type: string } }
-        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 200 } }
       responses:
-        "200":
-          description: Ledger rows
-          content:
-            application/json:
-              schema:
-                type: array
-                items: { $ref: "#/components/schemas/PurchaseStatus" }
+        "200": { description: "{ purchases: [{ id, state, outcome, product, retailer, amount_cents, currency, primary_check, reasons, intent_id, paypal_order_id, paypal_capture_id, created_at, updated_at }] }" }
+  /console/purchases/{purchaseId}/checks:
+    get:
+      tags: [console]
+      summary: Every check for one purchase, in order (evidence-chain widget)
+      security: [{ apiKey: [ops] }]
+      parameters: [{ $ref: "#/components/parameters/purchaseId" }]
+      responses:
+        "200": { description: "{ checks: [{ phase, check_id, kind, result, detail, line, model, prompt_version, created_at }] }" }
+        "404": { $ref: "#/components/responses/Problem" }
   /console/holds:
     get:
       tags: [console]
+      summary: Unresolved HOLDs, soonest auto-void first
       security: [{ apiKey: [ops] }]
       responses:
-        "200":
-          description: Open HOLDs with time remaining before auto-void
+        "200": { description: "{ holds: [{ id, product, retailer, amount_cents, currency, reasons, created_at, auto_void_at, shopper_notified }] }" }
   /console/stats:
     get:
       tags: [console]
+      summary: Counts and values by state, blocked value by reason, and captures without a consumed approval (should be 0)
       security: [{ apiKey: [ops] }]
       responses:
-        "200":
-          description: Aggregates (blocked value by reason, outcomes by day, false-capture counter)
+        "200": { description: "{ purchases, captured, rejected, voided, held, blocked_by_reason, unauthorized_captures, by_state }" }
+  /console/webhooks:
+    get:
+      tags: [console]
+      summary: Recent PayPal webhook deliveries (no payloads)
+      security: [{ apiKey: [ops] }]
+      responses:
+        "200": { description: "{ configured, events }" }
+  /console/disputes:
+    get:
+      tags: [console]
+      summary: Disputes attached to this tenant's purchases (ADR-0010)
+      security: [{ apiKey: [ops] }]
+      responses:
+        "200": { description: "{ disputes: [...] }" }
+    post:
+      tags: [console]
+      summary: Attach a buyer-opened PayPal dispute; refused unless it is against one of this tenant's captures
+      security: [{ apiKey: [ops] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [dispute_id], properties: { dispute_id: { type: string } } }
+      responses:
+        "201": { description: Attached }
+        "422": { $ref: "#/components/responses/Problem" }
+  /console/disputes/{disputeId}/refresh:
+    post:
+      tags: [console]
+      summary: Re-read the dispute from PayPal
+      security: [{ apiKey: [ops] }]
+      parameters: [{ name: disputeId, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Dispute }
+  /console/disputes/{disputeId}/submit:
+    post:
+      tags: [console]
+      summary: Submit reviewer-approved evidence text, exactly as approved, at most once
+      security: [{ apiKey: [ops] }]
+      parameters: [{ name: disputeId, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [text], properties: { text: { type: string, minLength: 50, maxLength: 5000 } } }
+      responses:
+        "200": { description: Submitted }
+        "409": { $ref: "#/components/responses/Problem" }
+  /console/disputes/{disputeId}/sandbox-step:
+    post:
+      tags: [console]
+      summary: "Sandbox only: require-evidence, or adjudicate in the seller's favour after evidence (recorded as a simulated verdict)"
+      security: [{ apiKey: [ops] }]
+      parameters: [{ name: disputeId, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: "{ step, dispute }" }
+        "409": { $ref: "#/components/responses/Problem" }
+  /demo/scenarios:
+    get:
+      tags: [demo]
+      summary: List the judge scenarios
+      security: []
+      responses:
+        "200": { description: "[{ name, title, expected }]" }
   /demo/scenarios/{name}:
     post:
       tags: [demo]
-      summary: Run a named judge scenario through the public purchase path
+      summary: Run a named judge scenario through the public purchase path (real sandbox)
       security: [{ apiKey: [demo] }]
       parameters:
         - name: name
           in: path
           required: true
-          schema: { type: string, enum: [normal, suspicious, hold, injection, cart_swap] }
+          schema: { type: string, enum: [normal, reject, over_budget, hold, overpriced, injection, cart_swap] }
       responses:
-        "202":
-          description: Scenario started
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "202": { description: "{ scenario, expected, intent_id, purchase }" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /demo/stats:
+    get:
+      tags: [demo]
+      summary: Aggregate counters for the judge page, counted from the current audit epoch (no ids)
+      security: [{ apiKey: [demo] }]
+      responses:
+        "200": { description: "{ purchases, captured, rejected, voided, held, blocked_by_reason, unauthorized_captures, since? }" }
+  /demo/screen:
+    post:
+      tags: [demo]
+      summary: "Try to beat it: screen a judge-written listing against the demo policy. No purchase, order or PayPal call."
+      security: [{ apiKey: [demo] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, price]
+              properties:
+                title: { type: string, maxLength: 200 }
+                description: { type: string, maxLength: 2000 }
+                brand: { type: string, maxLength: 80 }
+                category: { type: string, maxLength: 120 }
+                color: { type: string, maxLength: 40 }
+                size: { type: string, maxLength: 20 }
+                price: { type: number, exclusiveMinimum: 0, maximum: 100000 }
+                attributes: { type: object, additionalProperties: { type: string, maxLength: 200 }, maxProperties: 10 }
+      responses:
+        "200": { description: "{ outcome: CAPTURE | HOLD | REJECT, would_reach_paypal, checks, policy, ai_ms }" }
+        "400": { $ref: "#/components/responses/Problem" }
         "429": { $ref: "#/components/responses/Problem" }
   /demo/reset:
     post:
       tags: [demo]
-      summary: Void all open authorizations, start a new audit epoch, reseed
+      summary: Release every held authorization (voided by the executor) and start a new audit epoch; deletes nothing
       security: [{ apiKey: [admin] }]
       responses:
-        "202": { description: Reset queued }
+        "202": { description: "{ epoch, holds_released }" }
 components:
   securitySchemes:
     apiKey: { type: http, scheme: bearer, description: "Witness API key; scopes agent:purchase | ops | demo | admin" }

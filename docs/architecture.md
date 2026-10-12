@@ -256,7 +256,7 @@ sequenceDiagram
 | `paypal_calls` | id, purchase_id, op, request_id, status `PENDING/SUCCEEDED/FAILED/UNKNOWN`, request jsonb (redacted), response jsonb, http_status, debug_id, timestamps | Written **before** each money call and reconciled after (closes "record after capture"). |
 | `webhook_events` | event_id (PK), event_type, resource_type, resource_id, transmission_id, verified, payload jsonb, received_at, processed_at, outcome | |
 | `holds` | purchase_id, token_hash, token_expires_at, notified_at, resolved_at, resolution | |
-| `disputes` | id, paypal_dispute_id, purchase_id, status, evidence jsonb, steps jsonb | |
+| `disputes` | id (= PayPal dispute id), paypal_dispute_id, tenant_id, purchase_id, status, reason, amount_cents, allowed_actions, outcome, evidence_text, evidence_submitted_by/at, simulated_verdict | Extended in 0002 (Stage 5) |
 | `audit_log` | `seq` bigserial, epoch, tenant_id, purchase_id, event_type, payload jsonb, `prev_hash`, `hash` | `hash = SHA-256(prev_hash ‖ JCS({seq, epoch, event_type, purchase_id, payload, at}))`. A trigger rejects UPDATE and DELETE; the app role has INSERT and SELECT only. |
 | `pgboss.*` | job queue (ADR-0006) | Same database, so jobs are enqueued in the same transaction as the state change. |
 
@@ -315,8 +315,12 @@ Public base: `https://<api-host>/v1`. All bodies are Zod-validated; unknown fiel
 | `POST /holds/{purchase_id}/approve` · `/deny` | shopper + one-time token | Resolve a HOLD |
 | `POST /webhooks/paypal` | PayPal (signature-verified) | Webhook intake |
 | `GET /verify/purchases/{id}` · `GET /verify/chain` | public | Recompute the hash chain |
-| `GET /console/purchases` · `/holds` · `/stats` | ops | Ledger data for AG Studio |
-| `POST /demo/scenarios/{name}` · `POST /demo/reset` | admin (judge page uses a rate-limited demo key) | Run a named scenario; void all open authorizations and start a new epoch |
+| `GET /console/purchases` · `/holds` · `/stats` · `/webhooks` · `/purchases/{id}/checks` | ops | Ledger data for AG Studio (read-only) |
+| `GET·POST /console/disputes` · `POST /console/disputes/{id}/refresh` · `/submit` · `/sandbox-step` | ops | Disputes (ADR-0010): attach, submit approved evidence once, sandbox steps marked simulated |
+| `GET /me/purchases` | shopper | Receipts for the shopper's own intents |
+| `GET /demo/scenarios` · `POST /demo/scenarios/{name}` · `GET /demo/stats` · `POST /demo/screen` | demo (via the web proxy, rate limited) | Judge scenarios, counters, and "try to beat it" (screening only) |
+| `POST /demo/reset` | admin | Revoke held purchases' intents (executor voids) and start a new audit epoch |
+| Web: `/api/w/*` · `/api/studio-ai` · `/api/console/login` | browser | Allowlisted server-side key proxy; Studio agent on Haiku; console session (ADR-0015) |
 
 **There is no capture or void endpoint anywhere.**
 
