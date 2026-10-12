@@ -167,9 +167,22 @@ all scenarios passed
 ```
 The run writes `docs/evidence/render-sandbox-run.md`.
 
+**PowerShell** doesn't understand `VAR=value command`. Set the variables first; they last for that window:
+```powershell
+$env:WITNESS_API = "https://YOUR-API-URL"; $env:WITNESS_KEYS_FILE = ".witness/render-keys.json"; $env:EVIDENCE_FILE = "render-sandbox-run.md"; $env:WEBHOOK_WAIT_MS = "45000"
+```
+```powershell
+npx tsx scripts/sandbox-acceptance.ts
+```
+If you see `HTTP 401 … Missing or invalid API key`, the script used the wrong keys file: `WITNESS_KEYS_FILE` must point at the file the Render seed wrote (`.witness/render-keys.json`), not the local `.witness/dev-keys.json`.
+
 To look at webhook deliveries at any time (uses the ops key from the keys file; the key isn't displayed):
 ```bash
 curl -s -H "Authorization: Bearer $(node -p "require('./.witness/render-keys.json').ops")" https://YOUR-API-URL/v1/console/webhooks
+```
+In PowerShell (use `curl.exe`: plain `curl` is an alias for `Invoke-WebRequest`):
+```powershell
+$ops = node -p "require('./.witness/render-keys.json').ops"; curl.exe -s -H "Authorization: Bearer $ops" https://YOUR-API-URL/v1/console/webhooks
 ```
 
 **Send me:**
