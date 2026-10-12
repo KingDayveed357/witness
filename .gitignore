@@ -7,3 +7,4 @@ dist/
 coverage/
 *.tsbuildinfo
 .witness/
+evals/report/fake-latest.*

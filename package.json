@@ -25,7 +25,8 @@
     "spike:lifecycle": "node spikes/02-authorize-capture-void.mjs",
     "spike:vault": "node spikes/03-vault-authorize.mjs",
     "spike:swap": "node spikes/04-cart-swap.mjs",
-    "spike:dispute": "node spikes/05-dispute.mjs"
+    "spike:dispute": "node spikes/05-dispute.mjs",
+    "eval": "tsx scripts/eval.ts"
   },
   "devDependencies": {
     "@types/node": "24.19.0",

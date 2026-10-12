@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      real_eval:
+        description: "Run eval suite 1 against the real model (needs the ANTHROPIC_API_KEY secret; costs API credits)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,9 +30,35 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: pnpm typecheck
-      - name: Architecture rules (capture isolation)
+      - name: Architecture rules (capture isolation, AI and agent boundaries)
         run: pnpm deps:check
-      - name: Unit, contract and spike tests
+      - name: Unit, contract, eval-set and spike tests
         run: pnpm vitest run --project unit && node --test "test/*.test.mjs"
       - name: Integration tests on real Postgres (embedded)
         run: pnpm vitest run --project db
+      - name: Eval runner check (fake model; not a measurement)
+        run: pnpm eval -- --fake --runs 1
+
+  eval:
+    if: github.event_name == 'workflow_dispatch' && inputs.real_eval
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Eval suite 1 (real model, 3 runs per case)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: pnpm eval
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/report/latest.*
