@@ -61,3 +61,10 @@ Runs through the **public Witness API** against the real sandbox, with the demo 
 ## Reporting
 
 `evals/report/latest.md` + JSON: totals, per-category tables, every failing case with reasons, model and prompt versions, and run date. The README embeds the headline table and links the full report. Numbers are published as measured, including misses.
+
+## Implementation (Stage 4, 2026-10-12)
+
+- **Cases:** `evals/cases.ts` (typed TypeScript, not JSONL, so they're reviewable as code), with shape and distribution tests in `evals/cases.test.ts`.
+- **What runs:** `evaluateScreen` (`packages/ai/src/evaluate.ts`), the engine's exact screening composition. `evals/engine-agreement.test.ts` checks it agrees with the engine on every demo scenario.
+- **Run:** `pnpm eval` (needs `ANTHROPIC_API_KEY`; 72 cases × 3 runs ≈ 216 screenings, most making 2 model calls). The report goes to `evals/report/latest.md` and `.json`.
+- **`pnpm eval -- --fake`** checks the runner with a deterministic fake model. It writes `fake-latest.*` (gitignored) and is labelled as **not a measurement**. CI runs it on every push. The real eval is a manual CI job using the `ANTHROPIC_API_KEY` repository secret.

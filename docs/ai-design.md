@@ -77,3 +77,13 @@ A small tool-use loop with **only** these tools: `search_products` (Channel3), `
 ## Latency budget (targets, measured in evals)
 
 The screen-and-verify path makes 2 LLM calls in parallel (injection + semantic). Target p95 is **under 8 s** at the API for a 1–3 line cart, excluding PayPal. If Opus 5.5 at the default effort misses that, the levers are: effort `low` for the classifier, or a different model for the classifier (your decision).
+
+## Implementation notes (Stage 4, 2026-10-12)
+
+- **Where it lives:** `packages/ai`, which has no access to PayPal, the database or the executor (architecture rule `ai-has-no-money-access`). Prompts are in `packages/ai/prompts/*.v1.md`.
+- **Provider:** `AnthropicLlm` uses structured outputs (`output_config.format` via `betaZodOutputFormat`), re-validates every result locally, sets effort explicitly (`medium`), and enables server-side fallback (`fallbacks: "default"`). The model that actually answered is stored with each check. Without `ANTHROPIC_API_KEY`, `UnavailableLlm` makes every AI check fail closed (HOLD).
+- **Screening runs in three phases:** deterministic checks under the intent lock; AI checks outside any transaction; the decision in a second transaction.
+- **Category:** judged semantically when the catalog's taxonomy doesn't literally match ([ADR-0012](decisions/0012-category-judged-semantically.md)).
+- **Intent compiler:** amounts the model reads are cross-checked against amounts found deterministically in the shopper's own words. Disagreement becomes an ambiguity, never a value. Drafts may be incomplete; confirmation validates the full policy.
+- **Evidence writer:** the model receives placeholders, never raw amounts or IDs. Drafts that write digits, call the instruction "signed" or use unknown placeholders fall back to a template.
+- **Channel3 (verified live 2026-10-12):** the offer price is `price.price` (the docs say `price.amount`); brands are in `brands[]`; the category is an object with a `path`; attributes come from `structured_attributes` and `variants.selected`. Variant colour labels can be style codes, so only plain-word labels count as colours.

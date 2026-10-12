@@ -1,4 +1,4 @@
-# Witness build plan
+# Witness build plan **Done**: provider interface, Anthropic adapter, fake, versioned prompts, fail-closed tests | **Done**: POST /v1/intents {text}; incomplete drafts block confirmation | **Done**: three-phase screening; category judged semantically (ADR-0012) | **Done (API)**: one-time links, approve re-checks PayPal, deny voids; phone page is Stage 5 | **Done**: tools tested against the real API; live run needs ANTHROPIC_API_KEY | **Runner + 72 cases done**: real-model numbers need ANTHROPIC_API_KEY | **Done**: AI draft with template fallback |
 
 Status: **Draft for Checkpoint 2** · 2026-10-11 · Target submission **Nov 10** (deadline Nov 12, 12:00 PT = 21:00 Lagos)
 
