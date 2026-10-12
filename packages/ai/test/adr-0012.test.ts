@@ -1,10 +1,11 @@
-// ADR-0012 safeguards (accepted 2026-10-12): a non-literal category is judged semantically, but only
+// ADR-0012 safeguards (accepted 2026-10-12; integrity layer added by ADR-0014): a non-literal category is judged semantically, but only
 // a confident, grounded verdict can settle it; everything else holds; and AI can never override a
 // deterministic failure or loosen an exact purchase constraint.
 
 import { describe, expect, test } from "vitest";
 import type { Check, ProductFacts } from "@witness/core";
 import { FakeLlm, UnavailableLlm, evaluateScreen, settleDeferred, type ModelProvider } from "../src/index.ts";
+import { semanticReply } from "../../../test-support/fake-ai.ts";
 
 const NOW = new Date("2026-10-12T12:00:00Z");
 const POLICY = {
@@ -35,8 +36,9 @@ const buy = { intent_id: "int_t", retailer: "rei.com", lines: [{ product_id: "P1
 const run = (ai: ModelProvider, f: ProductFacts = listing()) => evaluateScreen(ai, POLICY, buy, new Map([[f.product_id, f]]), { now: NOW });
 
 const clean = { suspected: false, confidence: 0.95, spans: [] };
+const FIELD: Record<string, string> = { "technical trail running": "description", "built for mountain trails": "description", "Athletic Shoes": "category", "Trail-running shoes": "category" };
 const ai = (verdict: string, confidence: number, evidence_quote: string, injection: unknown = clean) =>
-  new FakeLlm().on("injection", () => injection).on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "P1", verdict, confidence, evidence_quote }] }));
+  new FakeLlm().on("injection", () => injection).on("semantic", semanticReply([{ constraint_id: "category", product_id: "P1", verdict, confidence, evidence_field: FIELD[evidence_quote] ?? "", evidence_quote }]));
 
 describe("ADR-0012: semantic category verification", () => {
   test("a confident, grounded 'satisfies' settles the deferred category", async () => {
@@ -71,11 +73,15 @@ describe("ADR-0012: semantic category verification", () => {
     expect(r.outcome).toBe("HOLD");
   });
 
-  test("a literal category match is decided deterministically: the model is never asked about category", async () => {
-    const f = ai("violates", 0.99, "Trail-running shoes");
+  test("a literal category match passes the category check deterministically; no category verdict is requested or needed", async () => {
+    const f = ai("violates", 0.99, "Trail-running shoes"); // an unrequested verdict is ignored
     const r = await run(f, listing({ category: "Shoes > Trail-running shoes" }));
     expect(r.outcome).toBe("CAPTURE");
-    expect(f.calls.map((c) => c.prompt)).toEqual(["injection"]); // no soft constraints, no category deferral
+    expect(r.checks.find((c) => c.id === "category")).toMatchObject({ result: "pass" });
+    const sent = JSON.parse(f.calls.find((c) => c.prompt === "semantic")!.input) as { constraints: { id: string }[] };
+    expect(sent.constraints.map((c) => c.id)).not.toContain("category");
+    // Since ADR-0014 the listing-integrity check still asks whether the product is genuinely the
+    // category; it can only reject or hold (tested in listing-integrity.test.ts).
   });
 
   test.each([

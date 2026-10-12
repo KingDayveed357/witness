@@ -30,6 +30,6 @@ export function loadPrompt(file: string): PromptDef {
 export const PROMPTS = {
   intent: loadPrompt("intent.v1.md"),
   injection: loadPrompt("injection.v2.md"),
-  semantic: loadPrompt("semantic.v2.md"),
+  semantic: loadPrompt("semantic.v3.md"),
   evidence: loadPrompt("evidence.v1.md"),
 } as const;

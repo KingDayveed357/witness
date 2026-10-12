@@ -6,6 +6,7 @@ import { FakeLlm, UnavailableLlm } from "@witness/ai";
 import { dbOf, schema } from "@witness/db";
 import { confirmIntent, createIntent, demoPolicy, submitPurchase } from "@witness/engine";
 import { createHarness, type Harness } from "../../../test-support/harness.ts";
+import { semanticReply } from "../../../test-support/fake-ai.ts";
 
 let h: Harness;
 beforeEach(async () => {
@@ -47,7 +48,7 @@ describe("AI in the pipeline", () => {
   test("a confident, grounded soft-constraint violation REJECTS before PayPal", async () => {
     h.d.ai = new FakeLlm()
       .on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }))
-      .on("semantic", () => ({ verdicts: [{ constraint_id: "mesh", product_id: "TRL-GRY-10", verdict: "violates", confidence: 0.95, evidence_quote: "Recycled mesh" }] }));
+      .on("semantic", semanticReply([{ constraint_id: "mesh", product_id: "TRL-GRY-10", verdict: "violates", confidence: 0.95, evidence_field: "attributes.material", evidence_quote: "Recycled mesh" }]));
     const p = await buy("TRL-GRY-10", { soft: [{ id: "mesh", text: "no mesh uppers" }] });
     expect(p.state).toBe("REJECTED");
     expect(p.reasons.join()).toMatch(/ai\.soft:mesh/);
@@ -65,7 +66,7 @@ describe("AI in the pipeline", () => {
   test("category: a road shoe judged 'violates' is REJECTED before PayPal", async () => {
     h.d.ai = new FakeLlm()
       .on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }))
-      .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "RD-BLU-10", verdict: "violates", confidence: 0.95, evidence_quote: "Road-running shoes" }] }));
+      .on("semantic", semanticReply([{ constraint_id: "category", product_id: "RD-BLU-10", verdict: "violates", confidence: 0.95, evidence_field: "category", evidence_quote: "Road-running shoes" }]));
     const p = await buy("RD-BLU-10");
     expect(p.state).toBe("REJECTED");
     expect(h.fake.count("POST", ORDERS)).toBe(0);
@@ -85,7 +86,7 @@ describe("AI in the pipeline", () => {
     };
     h.d.ai = new FakeLlm()
       .on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }))
-      .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "TRL-GRY-10", verdict: "satisfies", confidence: 0.93, evidence_quote: "Trail Running Shoe" }] }));
+      .on("semantic", semanticReply([{ constraint_id: "category", product_id: "TRL-GRY-10", verdict: "satisfies", confidence: 0.93, evidence_field: "title", evidence_quote: "Trail Running Shoe" }]));
     const p = await buy("TRL-GRY-10");
     expect(p.reasons).toEqual([]);
     expect(p.state).toBe("CAPTURE_APPROVED");

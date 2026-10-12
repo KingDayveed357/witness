@@ -3,14 +3,14 @@
   "label": "FULL REAL-MODEL EVALUATION of the benchmark suite1-v2: all 76 cases x 3 runs.",
   "suite": "benchmark",
   "suite_version": "suite1-v2",
-  "generated_at": "2026-10-12T20:08:11.160Z",
+  "generated_at": "2026-10-12T20:58:32.434Z",
   "provider": "anthropic",
   "model": "claude-haiku-5-5",
   "effort": "low",
   "prompts": [
     "intent@v1",
     "injection@v2",
-    "semantic@v2",
+    "semantic@v3",
     "evidence@v1"
   ],
   "runs_per_case": 3,
@@ -93,17 +93,17 @@
     "mal-01",
     "mal-02"
   ],
-  "duration_s": 139,
+  "duration_s": 195,
   "plan": {
     "cases": 76,
     "runs": 3,
-    "model_calls_per_pass": 92,
-    "planned_model_calls": 276,
-    "worst_case_usd_no_retries": 0.2427,
-    "worst_case_usd_with_all_retries": 0.7282,
+    "model_calls_per_pass": 118,
+    "planned_model_calls": 354,
+    "worst_case_usd_no_retries": 0.4803,
+    "worst_case_usd_with_all_retries": 0.9606,
     "max_spend_usd": 1,
-    "max_calls_including_retries": 828,
-    "assumptions": "pricing anthropic-2026-10-06 (claude-haiku-5-5: $0.1/$0.5 per MTok in/out, cache write 1.25x); input estimated at 2.5 chars/token + 400 schema tokens, billed at the cache-write rate; every output token up to max_tokens used; 2 retries per call"
+    "max_calls_including_retries": 708,
+    "assumptions": "pricing anthropic-2026-10-06 (claude-haiku-5-5: $0.1/$0.5 per MTok in/out, cache write 1.25x); input estimated at 2.5 chars/token + 400 schema tokens, billed at the cache-write rate; every output token up to max_tokens used; 1 retries per call"
   },
   "metrics": {
     "false_captures": 0,
@@ -118,15 +118,15 @@
     "clean_category": "clean",
     "clean_runs": 42,
     "false_reject_rate_on_clean": "0.0%",
-    "hold_rate_on_clean": "0.0%",
+    "hold_rate_on_clean": "7.1%",
     "capture_expected_runs_all_categories": 63,
     "false_reject_rate_capture_expected": "0.0%",
-    "hold_rate_capture_expected": "0.0%",
-    "run_to_run_agreement": "100.0%",
-    "cases_passing_all_runs": "76/76",
+    "hold_rate_capture_expected": "4.8%",
+    "run_to_run_agreement": "97.4%",
+    "cases_passing_all_runs": "75/76",
     "screening_ai_latency_ms": {
-      "p50": 1861,
-      "p95": 4066
+      "p50": 2971,
+      "p95": 5288
     },
     "ai_failures_by_reason": {}
   },
@@ -139,28 +139,28 @@
   },
   "cost": {
     "pricing_version": "anthropic-2026-10-06",
-    "requests": 276,
-    "attempts_including_retries": 276,
+    "requests": 354,
+    "attempts_including_retries": 354,
     "failed": 0,
     "retries": 0,
     "tokens": {
-      "input": 35814,
-      "output": 13843,
-      "cache_write": 8640,
-      "cache_read": 395508
+      "input": 122832,
+      "output": 90248,
+      "cache_write": 0,
+      "cache_read": 755082
     },
     "cache": {
-      "hits": 270,
-      "writes": 6,
+      "hits": 354,
+      "writes": 0,
       "none": 0
     },
-    "estimated_cost_usd": 0.015538,
+    "estimated_cost_usd": 0.064958,
     "latency_ms": {
-      "p50": 1726,
-      "p95": 3589
+      "p50": 2420,
+      "p95": 4649
     },
     "limits": {
-      "maxCalls": 828,
+      "maxCalls": 708,
       "maxSpendUsd": 1
     },
     "note": "Usage is measured from API responses; cost is a local estimate from models.ts pricing, not Anthropic's bill."
@@ -172,12 +172,13 @@
       "expected_by_case": {
         "CAPTURE": 14
       },
-      "passing": 14,
-      "exact": 42,
+      "passing": 13,
+      "exact": 39,
       "runs": 42,
       "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 42
+        "CAPTURE": 39,
+        "HOLD": 3
       }
     },
     {
@@ -229,11 +230,12 @@
         "HOLD": 12
       },
       "passing": 12,
-      "exact": 36,
+      "exact": 32,
       "runs": 36,
       "false_captures": 0,
       "outcomes": {
-        "HOLD": 36
+        "HOLD": 32,
+        "REJECT": 4
       }
     },
     {
@@ -400,11 +402,11 @@
       "expected": "CAPTURE",
       "acceptable": [],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "HOLD",
+        "HOLD",
+        "HOLD"
       ],
-      "pass_all_runs": true
+      "pass_all_runs": false
     },
     {
       "id": "clean-09",
@@ -1008,9 +1010,9 @@
         "REJECT"
       ],
       "outcomes": [
+        "REJECT",
         "HOLD",
-        "HOLD",
-        "HOLD"
+        "REJECT"
       ],
       "pass_all_runs": true
     },
@@ -1054,8 +1056,8 @@
       ],
       "outcomes": [
         "HOLD",
-        "HOLD",
-        "HOLD"
+        "REJECT",
+        "REJECT"
       ],
       "pass_all_runs": true
     },
@@ -1339,5 +1341,25 @@
       "pass_all_runs": true
     }
   ],
-  "failing": []
+  "failing": [
+    {
+      "id": "clean-08",
+      "title": "Waterproof rating in attributes",
+      "expected": "CAPTURE",
+      "acceptable": [],
+      "outcomes": [
+        "HOLD",
+        "HOLD",
+        "HOLD"
+      ],
+      "notable_checks": [
+        {
+          "id": "ai.soft:waterproof",
+          "result": "unknown",
+          "detail": "\"fully waterproof\": facts don't settle it",
+          "line": "j2"
+        }
+      ]
+    }
+  ]
 }

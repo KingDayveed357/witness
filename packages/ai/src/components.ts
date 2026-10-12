@@ -8,7 +8,7 @@ import { CURRENCIES, PolicyV1, numberToCents, type Check, type ProductFacts, typ
 import type { AiResult, LlmClient } from "./llm.ts";
 import { PROMPTS } from "./prompts.ts";
 
-export const THRESHOLDS = { injection: 0.5, semantic: 0.8, intentReview: 0.6 } as const;
+export const THRESHOLDS = { injection: 0.5, semantic: 0.8, integrity: 0.8, intentReview: 0.6 } as const;
 
 const conf = z.number();
 const inUnit = (n: number) => n >= 0 && n <= 1;
@@ -43,8 +43,10 @@ export async function checkInjection(ai: LlmClient, facts: ProductFacts[]): Prom
 }
 
 // ---------------------------------------------------------------------------------------------
-// Semantic verifier
+// Semantic verifier + listing integrity: one structured call (semantic@v3)
 // ---------------------------------------------------------------------------------------------
+
+const evidenceFields = { evidence_field: z.string(), evidence_quote: z.string() };
 
 export const SemanticOut = z.object({
   verdicts: z.array(
@@ -53,19 +55,84 @@ export const SemanticOut = z.object({
       product_id: z.string(),
       verdict: z.enum(["satisfies", "violates", "unknown"]),
       confidence: conf,
-      evidence_quote: z.string(),
+      ...evidenceFields,
+    }),
+  ),
+  integrity: z.array(
+    z.object({
+      requirement_id: z.string(),
+      product_id: z.string(),
+      verdict: z.enum(["consistent", "conflict", "unclear"]),
+      confidence: conf,
+      ...evidenceFields,
+      reason: z.string(),
     }),
   ),
 });
 
-const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+/**
+ * Something the shopper already confirmed, restated so the model can look for listing text that
+ * contradicts it. Derived from the policy by code, never by the model. `hard`: a confirmed conflict
+ * rejects; otherwise a conflict holds for the shopper.
+ */
+export interface IntegrityRequirement {
+  id: string;
+  text: string;
+  hard: boolean;
+}
 
-export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, facts: ProductFacts[], implicit: { id: string; text: string }[] = []): Promise<Check[]> {
+export function integrityRequirements(policy: PolicyV1): IntegrityRequirement[] {
+  const q = policy.quantity;
+  const reqs: IntegrityRequirement[] = [
+    { id: "item", hard: true, text: `nothing in the listing indicates that buying quantity ${q} delivers anything other than exactly ${q} complete unit${q > 1 ? "s" : ""} of one specific product, e.g. a part, refill, accessory, toy version, single piece of a pair or set, multi-pack, bundle, or a version chosen later` },
+    { id: "charges", hard: false, text: "nothing in the listing indicates a charge beyond the listed price: fees, surcharges, deposits, mandatory add-ons, recurring payments or subscriptions (optional extras the shopper may decline are fine)" },
+    { id: "consistency", hard: false, text: "nothing in the listing contradicts another part of the listing about what the product is, its size, colour, quantity, brand, condition or price" },
+  ];
+  if (policy.category) reqs.push({ id: "category", hard: true, text: `nothing in the listing indicates that the product is something other than a ${policy.category} itself (judge the whole listing, not the category label alone)` });
+  if (policy.hard.size) reqs.push({ id: "size", hard: true, text: `nothing in the listing indicates that the item delivered may not be size ${policy.hard.size} as an adult shopper means it: a different size stated anywhere, a youth/kids or other sizing system, the size label referring to something else, or the seller substituting another size` });
+  if (policy.hard.brand) reqs.push({ id: "brand", hard: true, text: `nothing in the listing indicates that the product is not a genuine ${policy.hard.brand} product: a copy, replica, "style", "compatible" or "inspired by" item, grey-market or unofficial, or a different maker named` });
+  if (policy.hard.excluded_colors.length) reqs.push({ id: "colour", hard: true, text: `nothing in the listing indicates that the product is ${policy.hard.excluded_colors.join(" or ")}, including shades and marketing names of ${policy.hard.excluded_colors.length > 1 ? "those colours" : "that colour"}, in any field` });
+  return reqs;
+}
+
+const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+const MIN_QUOTE_CHARS = 12;
+
+function fieldText(f: ProductFacts, field: string): string | undefined {
+  if (field === "title") return f.title;
+  if (field === "brand") return f.brand;
+  if (field === "category") return f.category;
+  if (field === "description") return f.description;
+  if (field.startsWith("attributes.")) return f.attributes[field.slice("attributes.".length)];
+  return undefined;
+}
+
+/**
+ * Evidence counts only if the quote is copied from the named field of the listing Witness fetched,
+ * and is substantive: at least 12 characters, or that field's entire value (e.g. a colour "Ivory").
+ * A matching scrap of text or a high confidence on its own is not proof.
+ */
+export function evidenceHolds(f: ProductFacts, field: string, quote: string): boolean {
+  const q = normalise(quote);
+  const text = fieldText(f, field.trim());
+  if (!q || text === undefined) return false;
+  const t = normalise(text);
+  return t.includes(q) && (q.length >= MIN_QUOTE_CHARS || q === t);
+}
+
+/**
+ * One model call per cart: the shopper's soft constraints (plus a deferred category, ADR-0012) and
+ * the listing-integrity requirements (ADR-0014). Every result either passes, tightens the decision,
+ * or holds; nothing here can loosen a deterministic check.
+ */
+export async function verifyListing(ai: LlmClient, policy: PolicyV1, facts: ProductFacts[], implicit: { id: string; text: string }[] = []): Promise<Check[]> {
   const constraints = [...policy.soft, ...implicit];
-  if (!constraints.length) return [];
+  const requirements = integrityRequirements(policy);
+  if (!facts.length) return [];
   const input = JSON.stringify(
     {
       constraints: constraints.map((s) => ({ id: s.id, text: s.text })),
+      requirements: requirements.map((q) => ({ id: q.id, text: q.text })),
       products: facts.map((f) => ({ product_id: f.product_id, title: f.title, brand: f.brand ?? null, category: f.category ?? null, attributes: f.attributes, description: f.description ?? null })),
     },
     null,
@@ -73,6 +140,7 @@ export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, fact
   );
   const r = await ai.structured(PROMPTS.semantic, input, SemanticOut);
   const out: Check[] = [];
+
   for (const s of constraints) {
     for (const f of facts) {
       const id = `ai.soft:${s.id}`;
@@ -85,28 +153,63 @@ export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, fact
         out.push({ id, line: f.product_id, result: "unknown", detail: `"${s.text}": no usable verdict from the model`, ...aiMeta(r) });
         continue;
       }
-      // The quote must really appear in the facts, otherwise the verdict isn't grounded.
-      const grounded = v.evidence_quote.trim().length > 0 && normalise(listingText(f)).includes(normalise(v.evidence_quote));
+      const grounded = evidenceHolds(f, v.evidence_field, v.evidence_quote);
       const confident = v.confidence >= THRESHOLDS.semantic;
       let result: Check["result"] = "unknown";
       if (v.verdict === "violates" && confident && grounded) result = "fail";
       else if (v.verdict === "satisfies" && confident && grounded) result = "pass";
-      const why = v.verdict === "unknown" ? "facts don't settle it" : !grounded ? `model said ${v.verdict} but its quote isn't in the listing` : !confident ? `model said ${v.verdict} with low confidence ${v.confidence.toFixed(2)}` : `${v.verdict}: "${v.evidence_quote.slice(0, 120)}"`;
+      const why = v.verdict === "unknown" ? "facts don't settle it" : !grounded ? `model said ${v.verdict} but its evidence isn't a substantive quote from the named listing field` : !confident ? `model said ${v.verdict} with low confidence ${v.confidence.toFixed(2)}` : `${v.verdict}: "${v.evidence_quote.slice(0, 120)}" (${v.evidence_field})`;
       out.push({ id, line: f.product_id, result, detail: `"${s.text}": ${why}`, ...aiMeta(r) });
+    }
+  }
+
+  for (const q of requirements) {
+    for (const f of facts) {
+      const id = `ai.integrity:${q.id}`;
+      if (!r.ok) {
+        out.push({ id, line: f.product_id, result: "unknown", detail: `listing integrity (${q.id}) unavailable (${r.reason}); a human must decide`, ...aiMeta(r) });
+        continue;
+      }
+      const v = r.value.integrity.find((x) => x.requirement_id === q.id && x.product_id === f.product_id);
+      if (!v || !inUnit(v.confidence)) {
+        out.push({ id, line: f.product_id, result: "unknown", detail: `listing integrity (${q.id}): no usable verdict from the model`, ...aiMeta(r) });
+        continue;
+      }
+      const confident = v.confidence >= THRESHOLDS.integrity;
+      const grounded = evidenceHolds(f, v.evidence_field, v.evidence_quote);
+      const quoted = v.evidence_quote ? `: "${v.evidence_quote.slice(0, 120)}" (${v.evidence_field})` : "";
+      let result: Check["result"];
+      let detail: string;
+      if (v.verdict === "consistent") {
+        // "No contradiction found" adds no hold and settles nothing: every other check still
+        // applies in full, so its confidence cannot weaken anything.
+        result = "pass";
+        detail = `listing integrity (${q.id}): no contradiction found (confidence ${v.confidence.toFixed(2)})`;
+      } else if (v.verdict === "conflict" && confident && grounded) {
+        result = q.hard ? "fail" : "unknown";
+        detail = `listing contradicts the confirmed ${q.id} requirement${quoted} (${v.reason.slice(0, 80)})`;
+      } else {
+        // A concern the model raised is never ignored: unclear, low-confidence or unverifiable
+        // conflicts all hold for a human.
+        result = "unknown";
+        detail = `listing integrity (${q.id}): ${v.verdict === "unclear" ? "uncertain" : !grounded ? "possible conflict, evidence not verifiable in the listing" : "possible conflict, low confidence"}${quoted} (${v.reason.slice(0, 80)})`;
+      }
+      out.push({ id, line: f.product_id, result, detail, ...aiMeta(r) });
     }
   }
   return out;
 }
 
 /**
- * All AI checks for a cart that passed deterministic screening. Runs the two calls in parallel.
+ * All AI checks for a cart that passed deterministic screening: the injection classifier and the
+ * listing verifier (soft constraints + listing integrity), two calls in parallel.
  * If deterministic checks deferred to a semantic judgement (category), the matching implicit
  * constraint is added, e.g. "is a trail-running shoe".
  */
 export async function aiScreen(ai: LlmClient, policy: PolicyV1, cart: ResolvedCart, facts: Map<string, ProductFacts>, deterministic: Check[] = []): Promise<Check[]> {
   const lineFacts = cart.lines.map((l) => facts.get(l.product_id)).filter((f): f is ProductFacts => Boolean(f));
   const implicit = deterministic.some((c) => c.defers_to === "ai.soft:category") && policy.category ? [{ id: "category", text: `is a ${policy.category}` }] : [];
-  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), checkSoftConstraints(ai, policy, lineFacts, implicit)]);
+  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), verifyListing(ai, policy, lineFacts, implicit)]);
   return [injection, ...soft];
 }
 

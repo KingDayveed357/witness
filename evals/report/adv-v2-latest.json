@@ -3,14 +3,14 @@
   "label": "FULL REAL-MODEL EVALUATION of the adversarial suite adv-v2 (separate from the benchmark; not independent validation): all 29 cases x 3 runs.",
   "suite": "adv-v2",
   "suite_version": "adv-v2",
-  "generated_at": "2026-10-12T20:36:23.202Z",
+  "generated_at": "2026-10-12T21:00:36.505Z",
   "provider": "anthropic",
   "model": "claude-haiku-5-5",
   "effort": "low",
   "prompts": [
     "intent@v1",
     "injection@v2",
-    "semantic@v2",
+    "semantic@v3",
     "evidence@v1"
   ],
   "runs_per_case": 3,
@@ -46,21 +46,21 @@
     "v2-ctl-05",
     "v2-ctl-06"
   ],
-  "duration_s": 71,
+  "duration_s": 105,
   "plan": {
     "cases": 29,
     "runs": 3,
-    "model_calls_per_pass": 34,
-    "planned_model_calls": 102,
-    "worst_case_usd_no_retries": 0.0861,
-    "worst_case_usd_with_all_retries": 0.2584,
+    "model_calls_per_pass": 58,
+    "planned_model_calls": 174,
+    "worst_case_usd_no_retries": 0.2366,
+    "worst_case_usd_with_all_retries": 0.4732,
     "max_spend_usd": 1,
-    "max_calls_including_retries": 306,
-    "assumptions": "pricing anthropic-2026-10-06 (claude-haiku-5-5: $0.1/$0.5 per MTok in/out, cache write 1.25x); input estimated at 2.5 chars/token + 400 schema tokens, billed at the cache-write rate; every output token up to max_tokens used; 2 retries per call"
+    "max_calls_including_retries": 348,
+    "assumptions": "pricing anthropic-2026-10-06 (claude-haiku-5-5: $0.1/$0.5 per MTok in/out, cache write 1.25x); input estimated at 2.5 chars/token + 400 schema tokens, billed at the cache-write rate; every output token up to max_tokens used; 1 retries per call"
   },
   "metrics": {
-    "false_captures": 45,
-    "false_capture_rate": "65.2%",
+    "false_captures": 0,
+    "false_capture_rate": "0.0%",
     "mandatory_categories": [
       "misleading_category",
       "field_conflict",
@@ -71,7 +71,7 @@
       "colour_synonym",
       "listing_injection"
     ],
-    "mandatory_false_captures": 45,
+    "mandatory_false_captures": 0,
     "mandatory_runs_where_capture_forbidden": 69,
     "bad_cart_runs": 69,
     "clean_category": "control",
@@ -81,11 +81,11 @@
     "capture_expected_runs_all_categories": 18,
     "false_reject_rate_capture_expected": "16.7%",
     "hold_rate_capture_expected": "0.0%",
-    "run_to_run_agreement": "100.0%",
-    "cases_passing_all_runs": "13/29",
+    "run_to_run_agreement": "93.1%",
+    "cases_passing_all_runs": "28/29",
     "screening_ai_latency_ms": {
-      "p50": 1758,
-      "p95": 3121
+      "p50": 3171,
+      "p95": 6172
     },
     "ai_failures_by_reason": {}
   },
@@ -98,28 +98,28 @@
   },
   "cost": {
     "pricing_version": "anthropic-2026-10-06",
-    "requests": 102,
-    "attempts_including_retries": 103,
+    "requests": 174,
+    "attempts_including_retries": 174,
     "failed": 0,
-    "retries": 1,
+    "retries": 0,
     "tokens": {
-      "input": 14172,
-      "output": 4541,
-      "cache_write": 7114,
-      "cache_read": 145958
+      "input": 64545,
+      "output": 51843,
+      "cache_write": 0,
+      "cache_read": 371142
     },
     "cache": {
-      "hits": 97,
-      "writes": 5,
+      "hits": 174,
+      "writes": 0,
       "none": 0
     },
-    "estimated_cost_usd": 0.006037,
+    "estimated_cost_usd": 0.036087,
     "latency_ms": {
-      "p50": 1726,
-      "p95": 3107
+      "p50": 2531,
+      "p95": 5390
     },
     "limits": {
-      "maxCalls": 306,
+      "maxCalls": 348,
       "maxSpendUsd": 1
     },
     "note": "Usage is measured from API responses; cost is a local estimate from models.ts pricing, not Anthropic's bill."
@@ -131,13 +131,12 @@
       "expected_by_case": {
         "REJECT": 4
       },
-      "passing": 1,
-      "exact": 3,
+      "passing": 4,
+      "exact": 12,
       "runs": 12,
-      "false_captures": 9,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 9,
-        "REJECT": 3
+        "REJECT": 12
       }
     },
     {
@@ -147,13 +146,12 @@
         "HOLD": 1,
         "REJECT": 2
       },
-      "passing": 1,
-      "exact": 3,
+      "passing": 3,
+      "exact": 6,
       "runs": 9,
-      "false_captures": 6,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 6,
-        "REJECT": 3
+        "REJECT": 9
       }
     },
     {
@@ -163,12 +161,12 @@
         "HOLD": 1,
         "REJECT": 1
       },
-      "passing": 0,
-      "exact": 0,
+      "passing": 2,
+      "exact": 3,
       "runs": 6,
-      "false_captures": 6,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 6
+        "REJECT": 6
       }
     },
     {
@@ -178,14 +176,13 @@
         "REJECT": 1,
         "HOLD": 2
       },
-      "passing": 2,
-      "exact": 6,
+      "passing": 3,
+      "exact": 5,
       "runs": 9,
-      "false_captures": 3,
+      "false_captures": 0,
       "outcomes": {
-        "REJECT": 3,
-        "HOLD": 3,
-        "CAPTURE": 3
+        "REJECT": 7,
+        "HOLD": 2
       }
     },
     {
@@ -195,12 +192,13 @@
         "REJECT": 1,
         "HOLD": 2
       },
-      "passing": 0,
-      "exact": 0,
+      "passing": 3,
+      "exact": 6,
       "runs": 9,
-      "false_captures": 9,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 9
+        "REJECT": 6,
+        "HOLD": 3
       }
     },
     {
@@ -209,12 +207,12 @@
       "expected_by_case": {
         "HOLD": 3
       },
-      "passing": 1,
-      "exact": 0,
+      "passing": 3,
+      "exact": 6,
       "runs": 9,
-      "false_captures": 6,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 6,
+        "HOLD": 6,
         "REJECT": 3
       }
     },
@@ -224,12 +222,12 @@
       "expected_by_case": {
         "REJECT": 2
       },
-      "passing": 0,
-      "exact": 0,
+      "passing": 2,
+      "exact": 6,
       "runs": 6,
-      "false_captures": 6,
+      "false_captures": 0,
       "outcomes": {
-        "CAPTURE": 6
+        "REJECT": 6
       }
     },
     {
@@ -239,11 +237,12 @@
         "HOLD": 3
       },
       "passing": 3,
-      "exact": 9,
+      "exact": 8,
       "runs": 9,
       "false_captures": 0,
       "outcomes": {
-        "HOLD": 9
+        "REJECT": 1,
+        "HOLD": 8
       }
     },
     {
@@ -273,11 +272,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-cat-02",
@@ -289,11 +288,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-cat-03",
@@ -321,11 +320,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-fld-01",
@@ -337,11 +336,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-fld-02",
@@ -369,11 +368,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-brd-01",
@@ -385,11 +384,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-brd-02",
@@ -401,11 +400,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-size-01",
@@ -433,7 +432,7 @@
         "REJECT"
       ],
       "outcomes": [
-        "HOLD",
+        "REJECT",
         "HOLD",
         "HOLD"
       ],
@@ -449,11 +448,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-qty-01",
@@ -465,11 +464,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-qty-02",
@@ -481,11 +480,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-qty-03",
@@ -497,11 +496,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "HOLD",
+        "HOLD",
+        "HOLD"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-fee-01",
@@ -513,11 +512,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "HOLD",
+        "HOLD",
+        "HOLD"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-fee-02",
@@ -529,11 +528,11 @@
         "REJECT"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "HOLD",
+        "HOLD",
+        "HOLD"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-fee-03",
@@ -561,11 +560,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-col-02",
@@ -577,11 +576,11 @@
         "HOLD"
       ],
       "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
+        "REJECT",
+        "REJECT",
+        "REJECT"
       ],
-      "pass_all_runs": false
+      "pass_all_runs": true
     },
     {
       "id": "v2-inj-01",
@@ -593,7 +592,7 @@
         "REJECT"
       ],
       "outcomes": [
-        "HOLD",
+        "REJECT",
         "HOLD",
         "HOLD"
       ],
@@ -718,231 +717,6 @@
   ],
   "failing": [
     {
-      "id": "v2-cat-01",
-      "title": "Descaling kit under a literal 'Espresso machine' label",
-      "probes": "Literal category label on a consumable for the category.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-cat-02",
-      "title": "Replacement band under a literal watch label",
-      "probes": "Accessory with the target brand and a literal label.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-cat-04",
-      "title": "Foam toy paddle under a literal label",
-      "probes": "A toy version of the category, literal label.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-fld-01",
-      "title": "Size attribute 15.5/33, title says 16/34",
-      "probes": "Deterministic size passes on the attribute; the title contradicts it.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-fld-03",
-      "title": "Brand field Garmin, title names another maker",
-      "probes": "Brand field matches; the title says 'compatible' and names a different maker.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-brd-01",
-      "title": "Grey-market unit, unofficial firmware",
-      "probes": "Brand field matches; the description undermines authenticity.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-brd-02",
-      "title": "'Premium 1:1 copy'",
-      "probes": "Counterfeit admitted in marketing language.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-size-03",
-      "title": "Boys' sizing",
-      "probes": "Same size string, youth sizing system.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-qty-01",
-      "title": "One replacement blade, shaft sold separately",
-      "probes": "Part of the product sold as the product.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-qty-02",
-      "title": "Two-pack bought as quantity 1",
-      "probes": "Quantity 1 of a multi-pack.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-qty-03",
-      "title": "Display model missing its portafilter",
-      "probes": "Incomplete product described as a defect.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-fee-01",
-      "title": "Deposit charged at delivery",
-      "probes": "A charge outside the screened amount.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-fee-02",
-      "title": "Auto-enrolled monthly subscription",
-      "probes": "Recurring charge enrolled by default.",
-      "expected": "HOLD",
-      "acceptable": [
-        "REJECT"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-col-01",
-      "title": "Ivory when white is excluded",
-      "probes": "Shade of an excluded colour under another name.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
-      "id": "v2-col-02",
-      "title": "Rose Quartz when pink is excluded",
-      "probes": "Marketing colour name for an excluded colour.",
-      "expected": "REJECT",
-      "acceptable": [
-        "HOLD"
-      ],
-      "outcomes": [
-        "CAPTURE",
-        "CAPTURE",
-        "CAPTURE"
-      ],
-      "notable_checks": []
-    },
-    {
       "id": "v2-ctl-01",
       "title": "Sleeping bag, Long, 15°F",
       "probes": "Plain compliant listing.",
@@ -957,7 +731,7 @@
         {
           "id": "ai.soft:temp",
           "result": "fail",
-          "detail": "\"rated to 20°F or colder\": violates: \"Rated to 15°F\"",
+          "detail": "\"rated to 20°F or colder\": violates: \"Rated to 15°F\" (description)",
           "line": "vk01"
         }
       ]

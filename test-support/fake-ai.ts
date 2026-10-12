@@ -1,5 +1,6 @@
 // A FakeLlm wired with plausible default behaviour for pipeline tests: listing text that addresses
-// agents is flagged as injection; soft constraints get "unknown" unless a test overrides it; the
+// agents is flagged as injection; soft constraints get "unknown" and listing integrity "consistent"
+// unless a test overrides it; the
 // intent compiler extracts the obvious fields from the shopper's text.
 
 import { FakeLlm } from "@witness/ai";
@@ -30,7 +31,38 @@ export function harnessAi(): FakeLlm {
       };
     })
     .on("semantic", (input) => {
-      const { constraints, products } = JSON.parse(input) as { constraints: { id: string }[]; products: { product_id: string }[] };
-      return { verdicts: constraints.flatMap((c) => products.map((p) => ({ constraint_id: c.id, product_id: p.product_id, verdict: "unknown", confidence: 0.5, evidence_quote: "" }))) };
+      const { constraints } = JSON.parse(input) as { constraints: { id: string }[] };
+      const products = (JSON.parse(input) as { products: { product_id: string }[] }).products;
+      return semanticReply(constraints.flatMap((c) => products.map((p) => ({ constraint_id: c.id, product_id: p.product_id, verdict: "unknown", confidence: 0.5, evidence_quote: "" }))))(input);
     });
+}
+
+interface FakeVerdict {
+  constraint_id: string;
+  product_id: string;
+  verdict: string;
+  confidence: number;
+  evidence_field?: string;
+  evidence_quote: string;
+}
+interface FakeIntegrity {
+  verdict: string;
+  confidence: number;
+  evidence_field?: string;
+  evidence_quote?: string;
+  reason?: string;
+}
+
+/**
+ * A semantic@v3 reply: the given preference verdicts, and "consistent" (0.95) for every listing-
+ * integrity requirement in the request unless overridden by requirement id.
+ */
+export function semanticReply(verdicts: FakeVerdict[] = [], integrity: Record<string, FakeIntegrity> = {}) {
+  return (input: string) => {
+    const { requirements, products } = JSON.parse(input) as { requirements: { id: string }[]; products: { product_id: string }[] };
+    return {
+      verdicts: verdicts.map((v) => ({ evidence_field: "", ...v })),
+      integrity: requirements.flatMap((q) => products.map((p) => ({ requirement_id: q.id, product_id: p.product_id, verdict: "consistent", confidence: 0.95, evidence_field: "", evidence_quote: "", reason: "", ...integrity[q.id] }))),
+    };
+  };
 }

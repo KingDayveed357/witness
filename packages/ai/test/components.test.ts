@@ -8,11 +8,12 @@ import {
   amountsInText,
   settleDeferred,
   checkInjection,
-  checkSoftConstraints,
+  verifyListing,
   compileIntent,
   writeEvidence,
   type EvidenceValues,
 } from "../src/index.ts";
+import { semanticReply } from "../../../test-support/fake-ai.ts";
 
 const facts = (over: Partial<ProductFacts> = {}): ProductFacts => ({
   product_id: "P1",
@@ -82,46 +83,61 @@ describe("injection classifier", () => {
   });
 });
 
-describe("semantic verifier", () => {
-  const verdict = (v: string, confidence: number, evidence_quote: string) => () => ({ verdicts: [{ constraint_id: "no_wool", product_id: "P1", verdict: v, confidence, evidence_quote }] });
+describe("semantic verifier (soft constraints)", () => {
+  const verdict = (v: string, confidence: number, evidence_quote: string, evidence_field = "attributes.material") =>
+    semanticReply([{ constraint_id: "no_wool", product_id: "P1", verdict: v, confidence, evidence_field, evidence_quote }]);
+  const soft = <T extends { id: string }>(c: T[]) => c.filter((x) => x.id.startsWith("ai.soft:"));
 
   test("a confident, grounded violation rejects ('no wool' vs a merino blend)", async () => {
-    const c = await checkSoftConstraints(new FakeLlm().on("semantic", verdict("violates", 0.95, "Merino wool blend")), policy, [facts()]);
-    expect(c).toEqual([expect.objectContaining({ id: "ai.soft:no_wool", line: "P1", result: "fail" })]);
+    const c = await verifyListing(new FakeLlm().on("semantic", verdict("violates", 0.95, "Merino wool blend")), policy, [facts()]);
+    expect(soft(c)).toEqual([expect.objectContaining({ id: "ai.soft:no_wool", line: "P1", result: "fail" })]);
   });
 
   test("a verdict whose quote is not in the listing is not trusted", async () => {
-    const c = await checkSoftConstraints(new FakeLlm().on("semantic", verdict("satisfies", 0.99, "100% synthetic")), policy, [facts()]);
+    const c = soft(await verifyListing(new FakeLlm().on("semantic", verdict("satisfies", 0.99, "100% synthetic")), policy, [facts()]));
     expect(c[0]!.result).toBe("unknown");
-    expect(c[0]!.detail).toMatch(/quote isn't in the listing/);
+    expect(c[0]!.detail).toMatch(/isn't a substantive quote from the named listing field/);
+  });
+
+  test("a quote that is real but from a different field than claimed is not trusted", async () => {
+    const c = soft(await verifyListing(new FakeLlm().on("semantic", verdict("violates", 0.95, "Merino wool blend", "title")), policy, [facts()]));
+    expect(c[0]!.result).toBe("unknown");
+  });
+
+  test("a short scrap of matching text is not proof, even at confidence 1.0", async () => {
+    const c = soft(await verifyListing(new FakeLlm().on("semantic", verdict("satisfies", 1, "wool", "description")), policy, [facts()]));
+    expect(c[0]!.result).toBe("unknown");
   });
 
   test("low confidence holds", async () => {
-    const c = await checkSoftConstraints(new FakeLlm().on("semantic", verdict("violates", 0.6, "Merino wool blend")), policy, [facts()]);
+    const c = soft(await verifyListing(new FakeLlm().on("semantic", verdict("violates", 0.6, "Merino wool blend")), policy, [facts()]));
     expect(c[0]!.result).toBe("unknown");
   });
 
   test("a missing verdict for a pair holds", async () => {
-    const c = await checkSoftConstraints(new FakeLlm().on("semantic", () => ({ verdicts: [] })), policy, [facts()]);
+    const c = soft(await verifyListing(new FakeLlm().on("semantic", semanticReply([])), policy, [facts()]));
     expect(c[0]!.result).toBe("unknown");
   });
 
-  test("model failure holds every constraint", async () => {
+  test("model failure holds every constraint and every integrity requirement", async () => {
     const ai = new FakeLlm();
     ai.failAll("timeout");
-    const c = await checkSoftConstraints(ai, policy, [facts(), facts({ product_id: "P2" })]);
-    expect(c.map((x) => x.result)).toEqual(["unknown", "unknown"]);
+    const c = await verifyListing(ai, policy, [facts(), facts({ product_id: "P2" })]);
+    expect(c.length).toBeGreaterThan(2);
+    expect(new Set(c.map((x) => x.result))).toEqual(new Set(["unknown"]));
   });
 
-  test("no soft constraints: no call is made", async () => {
-    const ai = new FakeLlm();
-    expect(await checkSoftConstraints(ai, PolicyV1.parse({ ...policy, soft: [] }), [facts()])).toEqual([]);
-    expect(ai.calls).toHaveLength(0);
+  test("no soft constraints: the listing is still checked for integrity", async () => {
+    const ai = new FakeLlm().on("semantic", semanticReply());
+    const c = await verifyListing(ai, PolicyV1.parse({ ...policy, soft: [] }), [facts()]);
+    expect(ai.calls).toHaveLength(1);
+    expect(c.every((x) => x.id.startsWith("ai.integrity:") && x.result === "pass")).toBe(true);
   });
 
   test("with no provider configured, everything holds (fail closed)", async () => {
     const c = await aiScreen(new UnavailableLlm(), policy, { retailer: "rei.com", currency: "USD", total_cents: 100, lines: [{ product_id: "P1", name: "x", unit_cents: 100, quantity: 1, attributes: {} }] }, new Map([["P1", facts()]]));
-    expect(c.map((x) => x.result)).toEqual(["unknown", "unknown"]);
+    expect(c.length).toBeGreaterThan(2);
+    expect(new Set(c.map((x) => x.result))).toEqual(new Set(["unknown"]));
   });
 });
 
