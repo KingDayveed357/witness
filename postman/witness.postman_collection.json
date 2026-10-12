@@ -1,0 +1,1605 @@
+{
+  "info": {
+    "name": "Witness API",
+    "description": "Witness: intent verification and payment control for AI shopping agents, on the PayPal sandbox. Set baseUrl and the four role keys (from `pnpm db:seed`). Scenario folders create real sandbox orders. Requests run in order; later requests use ids saved by earlier ones.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.collectionVariables.set(\"expiresAt\", new Date(Date.now() + 7 * 86400000).toISOString());"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:4000"
+    },
+    {
+      "key": "agentKey",
+      "value": ""
+    },
+    {
+      "key": "shopperKey",
+      "value": ""
+    },
+    {
+      "key": "opsKey",
+      "value": ""
+    },
+    {
+      "key": "demoKey",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"ok\", () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/healthz"
+          }
+        },
+        {
+          "name": "Readiness (database)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/readyz"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Judge scenarios (real PayPal sandbox)",
+      "item": [
+        {
+          "name": "List scenarios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"7 scenarios\", () => pm.expect(pm.response.json().length).to.be.at.least(7));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/demo/scenarios"
+          }
+        },
+        {
+          "name": "Run scenario: normal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_normal\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_normal\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/normal"
+          }
+        },
+        {
+          "name": "Run scenario: reject",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_reject\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_reject\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/reject"
+          }
+        },
+        {
+          "name": "Run scenario: over_budget",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_over_budget\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_over_budget\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/over_budget"
+          }
+        },
+        {
+          "name": "Run scenario: hold",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_hold\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_hold\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/hold"
+          }
+        },
+        {
+          "name": "Run scenario: overpriced",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_overpriced\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_overpriced\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/overpriced"
+          }
+        },
+        {
+          "name": "Run scenario: injection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_injection\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_injection\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/injection"
+          }
+        },
+        {
+          "name": "Run scenario: cart_swap",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"has purchase\", () => pm.expect(j.purchase.id).to.match(/^pur_/));",
+                  "pm.collectionVariables.set(\"p_cart_swap\", j.purchase.id);",
+                  "pm.collectionVariables.set(\"i_cart_swap\", j.intent_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/scenarios/cart_swap"
+          }
+        },
+        {
+          "name": "Scenario normal reached CAPTURED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"CAPTURED\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_normal}}"
+          }
+        },
+        {
+          "name": "Scenario reject reached REJECTED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"REJECTED\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_reject}}"
+          }
+        },
+        {
+          "name": "Scenario over_budget reached REJECTED",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"REJECTED\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_over_budget}}"
+          }
+        },
+        {
+          "name": "Scenario hold reached HELD",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"HELD\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_hold}}"
+          }
+        },
+        {
+          "name": "Scenario overpriced reached HELD",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"HELD\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_overpriced}}"
+          }
+        },
+        {
+          "name": "Scenario injection reached HELD",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"HELD\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_injection}}"
+          }
+        },
+        {
+          "name": "Scenario cart_swap reached VOIDED or VOIDING",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 8000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"state\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"VOIDED\",\"VOIDING\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_cart_swap}}"
+          }
+        },
+        {
+          "name": "Fetch from PayPal: clean purchase captured exactly once",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"one COMPLETED capture\", () => { pm.expect(j.captures.length).to.eql(1); pm.expect(j.captures[0].status).to.eql(\"COMPLETED\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_normal}}/paypal"
+          }
+        },
+        {
+          "name": "Fetch from PayPal: rejected purchase never reached PayPal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"no order\", () => pm.expect(pm.response.json().order).to.eql(null));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_reject}}/paypal"
+          }
+        },
+        {
+          "name": "Fetch from PayPal: cart swap voided, nothing captured",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"no capture\", () => pm.expect(j.captures.length).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_cart_swap}}/paypal"
+          }
+        },
+        {
+          "name": "Evidence record for the clean purchase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"PayPal calls recorded\", () => pm.expect(pm.response.json().paypal_calls.length).to.be.at.least(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_normal}}/evidence"
+          }
+        },
+        {
+          "name": "Public: verify one purchase's audit chain",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"valid\", () => pm.expect(pm.response.json().valid).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/verify/purchases/{{p_normal}}"
+          }
+        },
+        {
+          "name": "Public: verify the whole audit chain",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"valid\", () => pm.expect(pm.response.json().valid).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/verify/chain"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Shopper: intents and the HOLD decision",
+      "item": [
+        {
+          "name": "Create a structured intent (draft)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"draft\", () => pm.expect(j.status).to.eql(\"DRAFT\"));",
+                  "pm.collectionVariables.set(\"intentId\", j.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policy\": {\n    \"version\": 1,\n    \"category\": \"trail-running shoes\",\n    \"retailers\": [\n      \"rei.com\",\n      \"backcountry.com\"\n    ],\n    \"max_total_cents\": 9000,\n    \"currency\": \"USD\",\n    \"quantity\": 1,\n    \"hard\": {\n      \"excluded_colors\": [\n        \"white\"\n      ],\n      \"size\": \"10\"\n    },\n    \"substitution\": \"same_category_under_max\",\n    \"expires_at\": \"{{expiresAt}}\"\n  },\n  \"source_text\": \"Trail-running shoes, size 10, under $90, not white\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/intents"
+          }
+        },
+        {
+          "name": "Agent can't read an unconfirmed intent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 404\", () => pm.expect(pm.response.code).to.be.oneOf([404]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{intentId}}/summary"
+          }
+        },
+        {
+          "name": "Confirm the intent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"confirmed\", () => pm.expect(pm.response.json().status).to.eql(\"CONFIRMED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{intentId}}/confirm"
+          }
+        },
+        {
+          "name": "Agent reads the confirmed intent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{intentId}}/summary"
+          }
+        },
+        {
+          "name": "Receipts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"list\", () => pm.expect(pm.response.json().purchases).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/me/purchases"
+          }
+        },
+        {
+          "name": "One-time HOLD link for the held scenario",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.collectionVariables.set(\"holdToken\", pm.response.json().token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_hold}}/hold-link"
+          }
+        },
+        {
+          "name": "Open the hold with the token (no API key)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"held\", () => pm.expect(pm.response.json().state).to.eql(\"HELD\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/holds/{{p_hold}}?t={{holdToken}}"
+          }
+        },
+        {
+          "name": "A wrong token is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.expect(pm.response.code).to.be.oneOf([403]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/holds/{{p_hold}}/approve"
+          }
+        },
+        {
+          "name": "Deny the hold (releases the authorization)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{holdToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/holds/{{p_hold}}/deny"
+          }
+        },
+        {
+          "name": "The link is single-use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409 or 410\", () => pm.expect(pm.response.code).to.be.oneOf([409, 410]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{holdToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/holds/{{p_hold}}/approve"
+          }
+        },
+        {
+          "name": "Revoke the intent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"revoked\", () => pm.expect(pm.response.json().status).to.eql(\"REVOKED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{intentId}}/revoke"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent: purchases and idempotency",
+      "item": [
+        {
+          "name": "Create and confirm an intent for the agent",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.expect(pm.response.code).to.be.oneOf([201]));",
+                  "pm.collectionVariables.set(\"agentIntent\", pm.response.json().id);",
+                  "pm.collectionVariables.set(\"idemKey\", `postman-${Date.now()}`);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"policy\": {\n    \"version\": 1,\n    \"category\": \"trail-running shoes\",\n    \"retailers\": [\n      \"rei.com\",\n      \"backcountry.com\"\n    ],\n    \"max_total_cents\": 9000,\n    \"currency\": \"USD\",\n    \"quantity\": 1,\n    \"hard\": {\n      \"excluded_colors\": [\n        \"white\"\n      ],\n      \"size\": \"10\"\n    },\n    \"substitution\": \"same_category_under_max\",\n    \"expires_at\": \"{{expiresAt}}\"\n  },\n  \"source_text\": \"agent purchase test\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/intents"
+          }
+        },
+        {
+          "name": "Confirm it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{agentIntent}}/confirm"
+          }
+        },
+        {
+          "name": "Submit a purchase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 202\", () => pm.expect(pm.response.code).to.be.oneOf([202]));",
+                  "pm.collectionVariables.set(\"agentPurchase\", pm.response.json().id);",
+                  "pm.test(\"agent view hides PayPal ids\", () => pm.expect(pm.response.json().paypal).to.be.undefined);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{idemKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent_id\": \"{{agentIntent}}\",\n  \"retailer\": \"rei.com\",\n  \"lines\": [\n    {\n      \"product_id\": \"TRL-GRY-10\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/v1/purchases"
+          }
+        },
+        {
+          "name": "Replay with the same key returns the same purchase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"same id\", () => pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"agentPurchase\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{idemKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent_id\": \"{{agentIntent}}\",\n  \"retailer\": \"rei.com\",\n  \"lines\": [\n    {\n      \"product_id\": \"TRL-GRY-10\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/v1/purchases"
+          }
+        },
+        {
+          "name": "Same key, different body is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 422\", () => pm.expect(pm.response.code).to.be.oneOf([422]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "idempotency-key",
+                "value": "{{idemKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent_id\": \"{{agentIntent}}\",\n  \"retailer\": \"rei.com\",\n  \"lines\": [\n    {\n      \"product_id\": \"TRL-BLK-10\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/v1/purchases"
+          }
+        },
+        {
+          "name": "Agents can't create intents",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.expect(pm.response.code).to.be.oneOf([403]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"anything\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/intents"
+          }
+        },
+        {
+          "name": "No key is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.expect(pm.response.code).to.be.oneOf([401]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/v1/purchases"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ops console (read-only)",
+      "item": [
+        {
+          "name": "Ledger",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"rows\", () => pm.expect(pm.response.json().purchases.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/purchases?limit=50"
+          }
+        },
+        {
+          "name": "HOLD queue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/holds"
+          }
+        },
+        {
+          "name": "Stats: zero captures without an approval",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"no unauthorized captures\", () => pm.expect(pm.response.json().unauthorized_captures).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/stats"
+          }
+        },
+        {
+          "name": "Checks for one purchase",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"colour failed\", () => pm.expect(pm.response.json().checks.some((c) => c.check_id === \"color\" && c.result === \"fail\")).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/purchases/{{p_reject}}/checks"
+          }
+        },
+        {
+          "name": "Webhook deliveries",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/webhooks"
+          }
+        },
+        {
+          "name": "Disputes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{opsKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/disputes"
+          }
+        },
+        {
+          "name": "Agents can't read the console",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 403\", () => pm.expect(pm.response.code).to.be.oneOf([403]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{agentKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/console/stats"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Demo extras",
+      "item": [
+        {
+          "name": "Aggregate counters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"no ids leak\", () => pm.expect(pm.response.json().by_state).to.be.undefined);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/demo/stats"
+          }
+        },
+        {
+          "name": "Try to beat it: excluded colour is rejected without a model call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"REJECT\", () => pm.expect(pm.response.json().outcome).to.eql(\"REJECT\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Ridgeline Trail Runner, Cloud White\",\n  \"category\": \"Shoes > Trail-running shoes\",\n  \"color\": \"Cloud White\",\n  \"size\": \"10\",\n  \"price\": 84\n}"
+            },
+            "url": "{{baseUrl}}/v1/demo/screen"
+          }
+        },
+        {
+          "name": "Try to beat it: unknown fields are refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 400\", () => pm.expect(pm.response.code).to.be.oneOf([400]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"x\",\n  \"price\": 1,\n  \"payee\": \"attacker\"\n}"
+            },
+            "url": "{{baseUrl}}/v1/demo/screen"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cleanup: release held sandbox authorizations",
+      "item": [
+        {
+          "name": "Revoke the overpriced scenario's intent (voids its hold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{i_overpriced}}/revoke"
+          }
+        },
+        {
+          "name": "overpriced: authorization voided",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 6000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"voided\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"VOIDED\", \"VOIDING\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_overpriced}}"
+          }
+        },
+        {
+          "name": "Revoke the injection scenario's intent (voids its hold)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{shopperKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/intents/{{i_injection}}/revoke"
+          }
+        },
+        {
+          "name": "injection: authorization voided",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "setTimeout(() => {}, 6000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.expect(pm.response.code).to.be.oneOf([200]));",
+                  "pm.test(\"voided\", () => pm.expect(pm.response.json().state).to.be.oneOf([\"VOIDED\", \"VOIDING\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{demoKey}}"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchases/{{p_injection}}"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -29,7 +29,8 @@
     "eval": "tsx scripts/eval.ts",
     "ai:smoke": "tsx scripts/ai-smoke.ts",
     "eval:smoke": "tsx scripts/eval.ts --smoke",
-    "eval:fake": "tsx scripts/eval.ts --fake"
+    "eval:fake": "tsx scripts/eval.ts --fake",
+    "postman:build": "tsx scripts/postman.ts"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "0.128.0",
