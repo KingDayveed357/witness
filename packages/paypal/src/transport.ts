@@ -99,7 +99,7 @@ export class PayPalTransport {
     return this.#token.value;
   }
 
-  async send<T = any>(method: "GET" | "POST" | "PATCH", path: string, o: { body?: unknown; rawBody?: string; requestId?: string; label?: string; allowFail?: boolean } = {}): Promise<PayPalResponse<T>> {
+  async send<T = any>(method: "GET" | "POST" | "PATCH", path: string, o: { body?: unknown; rawBody?: string; multipartInput?: unknown; requestId?: string; label?: string; allowFail?: boolean } = {}): Promise<PayPalResponse<T>> {
     const label = o.label ?? `${method} ${path}`;
     if (MONEY_PATH.test(path) && this.role !== "executor") {
       throw new MoneyMovementForbidden(`${label}: money movement is only allowed in the executor process (role is ${this.role})`);
@@ -108,7 +108,10 @@ export class PayPalTransport {
 
     const headers: Record<string, string> = { Authorization: `Bearer ${await this.#accessToken()}` };
     if (o.requestId) headers["PayPal-Request-Id"] = o.requestId;
-    if (o.body !== undefined || o.rawBody !== undefined) headers["Content-Type"] = "application/json";
+    // multipart/form-data with the JSON in a part named "input" (Disputes provide-evidence).
+    const boundary = o.multipartInput !== undefined ? `witness-${(o.requestId ?? "x").replace(/[^A-Za-z0-9]/g, "")}` : null;
+    if (boundary) headers["Content-Type"] = `multipart/form-data; boundary=${boundary}`;
+    else if (o.body !== undefined || o.rawBody !== undefined) headers["Content-Type"] = "application/json";
     // Ask for the full resource so verification never depends on a minimal response.
     if (method !== "GET") headers["Prefer"] = "return=representation";
 
@@ -117,7 +120,9 @@ export class PayPalTransport {
       res = await this.#fetch(`${this.#base}${path}`, {
         method,
         headers,
-        body: o.rawBody ?? (o.body === undefined ? undefined : JSON.stringify(o.body)),
+        body: boundary
+          ? `--${boundary}\r\nContent-Disposition: form-data; name="input"\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(o.multipartInput)}\r\n--${boundary}--\r\n`
+          : (o.rawBody ?? (o.body === undefined ? undefined : JSON.stringify(o.body))),
         signal: AbortSignal.timeout(this.#timeoutMs),
       });
     } catch (e) {

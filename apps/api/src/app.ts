@@ -27,11 +27,14 @@ import {
   type Principal,
 } from "@witness/engine";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
+import { registerConsole, type ConsoleOptions } from "./console.ts";
+import { registerDisputes } from "./disputes.ts";
 
 export interface AppOptions {
   deps: EngineDeps;
   webhookId?: string | undefined;
   demoShopperId?: string | undefined;
+  console?: ConsoleOptions;
   logger?: boolean | object;
 }
 
@@ -334,6 +337,9 @@ export function buildApp(o: AppOptions): FastifyInstance {
       .limit(50);
     return { configured: Boolean(o.webhookId), events: rows };
   });
+
+  registerConsole(app, d, auth, problem, o.console);
+  registerDisputes(app, d, auth, problem);
 
   // ---- public verification ----------------------------------------------------------------
   app.get<{ Querystring: { epoch?: string } }>("/v1/verify/chain", async (req) => {

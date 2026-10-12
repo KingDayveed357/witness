@@ -20,7 +20,7 @@ export const ProductFacts = z.strictObject({
   attributes: z.record(z.string(), z.string()).default({}),
   description: z.string().max(10_000).optional(),
   offers: z.array(Offer).default([]),
-  source: z.enum(["channel3", "fixture"]),
+  source: z.enum(["channel3", "fixture", "judge"]), // judge: a listing typed on the demo page, screened only (never purchased)
   fetched_at: z.iso.datetime({ offset: true }),
 });
 export type ProductFacts = z.infer<typeof ProductFacts>;

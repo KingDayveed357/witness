@@ -34,6 +34,7 @@ export const ApiConfig = Base.extend({
   /** Per-process ceilings: when reached, AI checks fail closed (HOLD) instead of spending more. */
   WITNESS_AI_MAX_SPEND_USD: z.coerce.number().positive().max(50).default(1),
   WITNESS_AI_MAX_CALLS: z.coerce.number().int().positive().max(100_000).default(2000),
+  WITNESS_DEMO_AI_MAX_SPEND_USD: z.coerce.number().positive().max(10).default(0.25),
   WITNESS_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   WITNESS_AI_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
   WITNESS_DEFAULT_RETAILERS: z.string().default("rei.com,backcountry.com"),

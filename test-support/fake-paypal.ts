@@ -30,6 +30,9 @@ export class FakePayPal {
   orders = new Map<string, Json>();
   auths = new Map<string, Auth>();
   captures = new Map<string, Capture>();
+  disputes = new Map<string, { id: string; captureId: string; value: string; currency: string; status: string; links: string[]; evidence: Json; outcome: string | null }>();
+  /** Raw body of the last multipart request. */
+  lastMultipart: string | null = null;
   idempotent = new Map<string, { status: number; body: Json }>();
   calls: { method: string; path: string; requestId?: string }[] = [];
   #seq = 0;
@@ -82,12 +85,33 @@ export class FakePayPal {
       const key = requestId ? `${method} ${path} ${requestId}` : null;
       if (key && this.idempotent.has(key)) res = this.idempotent.get(key)!;
       else {
-        res = this.#handle(method, path, init.body ? JSON.parse(String(init.body)) : undefined);
+        res = this.#handle(method, path, this.#parseBody(headers["Content-Type"] ?? "", init.body));
         if (key && res.status < 500) this.idempotent.set(key, res);
       }
       if (mode === "network-after") throw new TypeError("fetch failed (injected, after PayPal applied it)");
       return this.#json(res.status, res.body);
     }) as typeof fetch;
+  }
+
+  /** JSON, or multipart/form-data whose part named "input" holds JSON (Disputes provide-evidence). */
+  #parseBody(contentType: string, raw: unknown): Json {
+    if (!raw) return undefined;
+    const text = String(raw);
+    const b = contentType.match(/^multipart\/form-data; boundary=(.+)$/)?.[1];
+    if (!b) return JSON.parse(text);
+    this.lastMultipart = text;
+    const part = text.split(`--${b}`).find((x) => /Content-Disposition: form-data; name="input"/.test(x));
+    if (!part) return { __multipart_without_input: true };
+    return JSON.parse(part.slice(part.indexOf("\r\n\r\n") + 4).replace(/\r\n$/, ""));
+  }
+
+  /** Simulate a buyer opening a dispute on a capture. stage "inquiry" needs require-evidence first. */
+  openDispute(captureId: string, o: { stage?: "inquiry" | "evidence" } = {}): string {
+    const c = this.captures.get(captureId);
+    if (!c) throw new Error(`no capture ${captureId}`);
+    const id = this.#id("PP-D");
+    this.disputes.set(id, { id, captureId, value: c.value, currency: c.currency, status: "WAITING_FOR_SELLER_RESPONSE", links: o.stage === "inquiry" ? ["require_evidence"] : ["provide_evidence"], evidence: null, outcome: null });
+    return id;
   }
 
   #json(status: number, body: Json) {
@@ -107,6 +131,46 @@ export class FakePayPal {
 
   #handle(method: string, path: string, body: Json): { status: number; body: Json } {
     let m: RegExpMatchArray | null;
+    if ((m = path.match(/^\/v1\/customer\/disputes\/([^/]+)(?:\/([a-z-]+))?$/))) {
+      const dsp = this.disputes.get(m[1]!);
+      if (!dsp) return { status: 404, body: { name: "RESOURCE_NOT_FOUND" } };
+      const unprocessable = { status: 422, body: { name: "UNPROCESSABLE_ENTITY", details: [{ issue: "ACTION_NOT_ALLOWED" }] } };
+      if (method === "GET" && !m[2]) {
+        return {
+          status: 200,
+          body: {
+            dispute_id: dsp.id,
+            status: dsp.status,
+            reason: "MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED",
+            dispute_amount: { currency_code: dsp.currency, value: dsp.value },
+            disputed_transactions: [{ seller_transaction_id: dsp.captureId }],
+            ...(dsp.outcome ? { dispute_outcome: { outcome_code: dsp.outcome } } : {}),
+            links: [{ rel: "self" }, ...dsp.links.map((rel) => ({ rel }))],
+          },
+        };
+      }
+      if (method === "POST" && m[2] === "provide-evidence") {
+        if (!dsp.links.includes("provide_evidence")) return unprocessable;
+        if (!Array.isArray(body?.evidences) || !body.evidences[0]?.notes) return { status: 400, body: { name: "INVALID_REQUEST" } };
+        dsp.evidence = body;
+        dsp.status = "UNDER_REVIEW";
+        dsp.links = ["adjudicate"];
+        return { status: 200, body: { links: [{ rel: "self" }] } };
+      }
+      if (method === "POST" && m[2] === "require-evidence") {
+        if (!dsp.links.includes("require_evidence")) return unprocessable;
+        dsp.links = ["provide_evidence"];
+        return { status: 200, body: { links: [{ rel: "self" }] } };
+      }
+      if (method === "POST" && m[2] === "adjudicate") {
+        if (!dsp.links.includes("adjudicate")) return unprocessable;
+        dsp.status = "RESOLVED";
+        dsp.outcome = body?.adjudication_outcome === "SELLER_FAVOR" ? "RESOLVED_SELLER_FAVOUR" : "RESOLVED_BUYER_FAVOUR";
+        dsp.links = [];
+        return { status: 200, body: { links: [{ rel: "self" }] } };
+      }
+      return { status: 404, body: { name: "RESOURCE_NOT_FOUND" } };
+    }
     if (method === "POST" && path === "/v2/checkout/orders") {
       const id = this.#id("ORD");
       const pu = { ...structuredClone(body.purchase_units[0]) };

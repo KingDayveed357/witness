@@ -13,6 +13,9 @@ const cfg = parseConfig(ApiConfig);
 // Fail at startup on an unapproved model (only Haiku is allowed), never at the first purchase.
 approvedModel(cfg.WITNESS_AI_MODEL);
 const aiMeter = new UsageMeter({ maxCalls: cfg.WITNESS_AI_MAX_CALLS, maxSpendUsd: cfg.WITNESS_AI_MAX_SPEND_USD });
+// The public "try to beat it" screen has its own, smaller budget: judge traffic can never exhaust the
+// budget that screens real purchases (when it runs out, only judge screens hold).
+const demoMeter = new UsageMeter({ maxCalls: Math.ceil(cfg.WITNESS_AI_MAX_CALLS / 4), maxSpendUsd: cfg.WITNESS_DEMO_AI_MAX_SPEND_USD });
 const pool = createPool(cfg.DATABASE_URL);
 await migrate(pool);
 const boss = createBoss(cfg.DATABASE_URL, "api");
@@ -33,6 +36,11 @@ const app = buildApp({
   },
   webhookId: cfg.PAYPAL_WEBHOOK_ID,
   demoShopperId: cfg.WITNESS_DEMO_SHOPPER_ID,
+  console: {
+    demoAi: cfg.ANTHROPIC_API_KEY
+      ? new AnthropicProvider({ apiKey: cfg.ANTHROPIC_API_KEY, model: cfg.WITNESS_AI_MODEL, timeoutMs: cfg.WITNESS_AI_TIMEOUT_MS, maxRetries: cfg.WITNESS_AI_MAX_RETRIES, meter: demoMeter })
+      : new UnavailableProvider(),
+  },
   logger: { level: cfg.LOG_LEVEL, redact: ["req.headers.authorization"] },
 });
 

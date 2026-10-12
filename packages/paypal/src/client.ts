@@ -38,6 +38,25 @@ export class PayPalClient {
     return this.#t.send("GET", `/v1/customer/disputes/${encodeURIComponent(disputeId)}`, { label: "get-dispute" });
   }
 
+  /** Submit reviewer-approved evidence (multipart, JSON in part "input"). Not money movement. */
+  provideEvidence(disputeId: string, notes: string, requestId: string): Promise<PayPalResponse> {
+    return this.#t.send("POST", `/v1/customer/disputes/${encodeURIComponent(disputeId)}/provide-evidence`, {
+      multipartInput: { evidences: [{ evidence_type: "OTHER", notes }] },
+      requestId,
+      label: "provide-evidence",
+    });
+  }
+
+  /** Sandbox only: ask PayPal to move the dispute to the evidence stage. */
+  requireEvidence(disputeId: string, requestId: string): Promise<PayPalResponse> {
+    return this.#t.send("POST", `/v1/customer/disputes/${encodeURIComponent(disputeId)}/require-evidence`, { body: { action: "SELLER_EVIDENCE" }, requestId, label: "require-evidence" });
+  }
+
+  /** Sandbox only: settle the dispute. Its result is a simulated verdict and is labelled as such. */
+  adjudicate(disputeId: string, outcome: "SELLER_FAVOR" | "BUYER_FAVOR", requestId: string): Promise<PayPalResponse> {
+    return this.#t.send("POST", `/v1/customer/disputes/${encodeURIComponent(disputeId)}/adjudicate`, { body: { adjudication_outcome: outcome }, requestId, label: "adjudicate" });
+  }
+
   /**
    * POST /v1/notifications/verify-webhook-signature (required fields verified against the schema).
    * PayPal requires webhook_event to be posted back exactly as received, so the raw body is embedded
