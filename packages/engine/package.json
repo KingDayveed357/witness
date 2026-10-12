@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@witness/ai": "workspace:*",
     "@witness/catalog": "workspace:*",
     "@witness/core": "workspace:*",
     "@witness/db": "workspace:*",

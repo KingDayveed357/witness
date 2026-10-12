@@ -27,6 +27,10 @@ export const ApiConfig = Base.extend({
   HOST: z.string().default("0.0.0.0"),
   PAYPAL_WEBHOOK_ID: z.string().optional(),
   WITNESS_DEMO_SHOPPER_ID: z.string().optional(),
+  /** Without it every AI check fails closed, so purchases HOLD instead of capturing. */
+  ANTHROPIC_API_KEY: z.string().optional(),
+  WITNESS_AI_MODEL: z.string().default("claude-opus-5-5"),
+  WITNESS_DEFAULT_RETAILERS: z.string().default("rei.com,backcountry.com"),
 });
 export type ApiConfig = z.infer<typeof ApiConfig>;
 

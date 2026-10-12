@@ -3,6 +3,7 @@ import type { PgBoss } from "pg-boss";
 import { standardAdapter, swapAdapter, type CheckoutAdapter } from "@witness/core";
 import type { CatalogSource } from "@witness/catalog";
 import type { PayPalClient } from "@witness/paypal";
+import type { LlmClient } from "@witness/ai";
 
 export interface Logger {
   info(msg: string, data?: Record<string, unknown>): void;
@@ -17,6 +18,10 @@ export interface EngineDeps {
   boss: PgBoss;
   paypal: PayPalClient;
   catalog: CatalogSource;
+  /** Model provider for AI checks. Absent means every AI check fails closed (HOLD). */
+  ai?: LlmClient;
+  /** Stores proposed when a compiled intent names none (the shopper must confirm). */
+  defaultRetailers?: string[];
   log?: Logger;
   now?: () => Date;
   /** How long an approval may wait for the executor before it expires (default 10 min). */

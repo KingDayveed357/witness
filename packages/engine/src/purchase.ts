@@ -35,9 +35,11 @@ import {
   schema,
   transition,
   withTx,
+  type PurchasePatch,
   type PurchaseRow,
   type Tx,
 } from "@witness/db";
+import { UnavailableLlm, aiScreen } from "@witness/ai";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { DEFAULT_ADAPTERS, logOf, nowOf, type EngineDeps, type Principal } from "./deps.ts";
 
@@ -85,6 +87,13 @@ export type SubmitResult =
   | { kind: "error"; status: 400 | 404 | 409 | 422; title: string; detail: string };
 
 const err = (status: 400 | 404 | 409 | 422, title: string, detail: string): SubmitResult => ({ kind: "error", status, title, detail });
+
+/** SCREENING -> REJECTED with every failing check as a reason. No PayPal call has been made. */
+async function rejectScreened(tx: Tx, tenantId: string, purchaseId: string, all: Check[], patch: PurchasePatch) {
+  const reasons = all.filter((c) => c.result === "fail").map((c) => `${c.id}: ${c.detail}`);
+  await recordDecision(tx, purchaseId, "REJECT", reasons, "engine");
+  await transition(tx, { tenantId, purchaseId, from: "SCREENING", to: "REJECTED", event: "purchase.rejected", payload: { reasons, paypal_called: false }, patch: { ...patch, outcome: "REJECT", reasons } });
+}
 
 async function readPurchase(d: EngineDeps, tenantId: string, id: string): Promise<PurchaseRow> {
   const rows = await dbOf(d.pool).select().from(purchases).where(and(eq(purchases.id, id), eq(purchases.tenantId, tenantId))).limit(1);
@@ -175,32 +184,18 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     await recordChecks(tx, purchaseId, "SCREEN", all);
 
     const facts = Object.fromEntries(catalog.facts);
-    const outcome = screenOutcome(all);
-    if (outcome === "REJECT" || !cart) {
-      const reasons = all.filter((c) => c.result === "fail").map((c) => `${c.id}: ${c.detail}`);
-      await recordDecision(tx, purchaseId, "REJECT", reasons, "engine");
-      await transition(tx, {
-        tenantId: who.tenantId,
-        purchaseId,
-        from: "SCREENING",
-        to: "REJECTED",
-        event: "purchase.rejected",
-        payload: { reasons, paypal_called: false },
-        patch: { outcome: "REJECT", reasons, retailer: req.retailer, facts, cart: cart ?? null, amountCents: cart?.total_cents ?? null, currency: cart?.currency ?? null },
-      });
+    if (screenOutcome(all) === "REJECT" || !cart) {
+      await rejectScreened(tx, who.tenantId, purchaseId, all, { retailer: req.retailer, facts, cart: cart ?? null, amountCents: cart?.total_cents ?? null, currency: cart?.currency ?? null });
       return { purchaseId, next: false as const };
     }
-
-    await transition(tx, {
-      tenantId: who.tenantId,
-      purchaseId,
-      from: "SCREENING",
-      to: "AUTHORIZING",
-      event: "purchase.screened",
-      payload: { screen_outcome: outcome, cart_digest: cartDigest(cart.currency, expectedItems(cart)) },
-      patch: { retailer: req.retailer, facts, cart, cartDigest: cartDigest(cart.currency, expectedItems(cart)), amountCents: cart.total_cents, currency: cart.currency },
-    });
-    return { purchaseId, next: true as const };
+    // Deterministic screen passed. Keep the purchase in SCREENING (it already counts against the
+    // intent's max_purchases) and release the intent lock before the slow AI calls.
+    const digest = cartDigest(cart.currency, expectedItems(cart));
+    await tx.db
+      .update(purchases)
+      .set({ retailer: req.retailer, facts, cart, cartDigest: digest, amountCents: cart.total_cents, currency: cart.currency, updatedAt: new Date() })
+      .where(eq(purchases.id, purchaseId));
+    return { purchaseId, next: true as const, cart, policy, deterministic: all, digest };
   });
 
   if ("kind" in step) return step;
@@ -209,8 +204,33 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     return p ? replay(p) : err(409, "Concurrent submission", "retry with the same Idempotency-Key");
   }
   if (step.next) {
-    await authorizePurchase(d, who.tenantId, step.purchaseId);
-    await verifyPurchase(d, who.tenantId, step.purchaseId);
+    // AI checks run outside any transaction. They can only make the decision stricter, and any
+    // failure (including no provider configured) is "unknown", which becomes HOLD.
+    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts);
+    const proceed = await withTx(d.pool, async (tx) => {
+      const locked = (await tx.db.select().from(purchases).where(eq(purchases.id, step.purchaseId)).for("update").limit(1))[0];
+      if (!locked || locked.state !== "SCREENING") return false;
+      await recordChecks(tx, step.purchaseId, "SCREEN", aiChecks);
+      const all = [...step.deterministic, ...aiChecks];
+      const outcome = screenOutcome(all);
+      if (outcome === "REJECT") {
+        await rejectScreened(tx, who.tenantId, step.purchaseId, all, {});
+        return false;
+      }
+      await transition(tx, {
+        tenantId: who.tenantId,
+        purchaseId: step.purchaseId,
+        from: "SCREENING",
+        to: "AUTHORIZING",
+        event: "purchase.screened",
+        payload: { screen_outcome: outcome, cart_digest: step.digest, ai_checks: aiChecks.map((c) => ({ id: c.id, result: c.result, model: c.model ?? null, prompt_version: c.prompt_version ?? null })) },
+      });
+      return true;
+    });
+    if (proceed) {
+      await authorizePurchase(d, who.tenantId, step.purchaseId);
+      await verifyPurchase(d, who.tenantId, step.purchaseId);
+    }
   }
   return { kind: "ok", replay: false, purchase: await readPurchase(d, who.tenantId, step.purchaseId) };
 }

@@ -38,6 +38,8 @@ services:
         sync: false
       - key: WITNESS_DEMO_SHOPPER_ID
         sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: LOG_LEVEL
         value: info
 

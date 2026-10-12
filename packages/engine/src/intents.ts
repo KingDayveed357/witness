@@ -4,6 +4,7 @@
 import { and, eq } from "drizzle-orm";
 import { PolicyV1, newId, policyDigest } from "@witness/core";
 import { QUEUES, appendAudit, enqueue, recordDecision, schema, transition, withTx } from "@witness/db";
+import { UnavailableLlm, compileIntent } from "@witness/ai";
 import { nowOf, type EngineDeps } from "./deps.ts";
 
 const { intents, purchases, holds, shoppers } = schema;
@@ -20,10 +21,35 @@ export function intentView(i: IntentRow) {
     status: i.status,
     source_text: i.sourceText,
     policy: i.policy,
+    /** False while a compiled draft still has gaps the shopper must fill before confirming. */
+    complete: PolicyV1.safeParse(i.policy).success,
     policy_digest: i.policyDigest,
     ambiguities: i.ambiguities,
+    compiler: i.compiler,
     confirmed_at: i.confirmedAt?.toISOString() ?? null,
   };
+}
+
+/**
+ * Compile free text into a DRAFT intent (the model proposes; the shopper confirms every field).
+ * The draft may be incomplete: confirmation validates the full policy, so gaps can't slip through.
+ */
+export async function compileAndCreateIntent(d: EngineDeps, tenantId: string, shopperId: string, text: string): Promise<IntentResult> {
+  const trimmed = text.trim();
+  if (trimmed.length < 3 || trimmed.length > 1000) return fail(422, "Invalid request text", "3 to 1000 characters");
+  const r = await compileIntent(d.ai ?? new UnavailableLlm(), trimmed, { now: nowOf(d), defaultRetailers: d.defaultRetailers ?? [] });
+  if (r.kind === "error") return fail(422, "Couldn't interpret the request automatically", `${r.reason}; send a structured policy instead`);
+  return withTx(d.pool, async (tx) => {
+    const shopper = (await tx.db.select().from(shoppers).where(and(eq(shoppers.id, shopperId), eq(shoppers.tenantId, tenantId))).limit(1))[0];
+    if (!shopper) return fail(404, "Shopper not found", shopperId);
+    const id = newId("int");
+    const [row] = await tx.db
+      .insert(intents)
+      .values({ id, tenantId, shopperId, lineageId: id, version: 1, status: "DRAFT", sourceText: trimmed, policy: r.draft, ambiguities: r.ambiguities, compiler: { ...r.compiler, confidence: r.confidence } })
+      .returning();
+    await appendAudit(tx, { tenantId, purchaseId: null, eventType: "intent.compiled", payload: { intent_id: id, shopper_id: shopperId, complete: r.complete, ambiguities: r.ambiguities.map((a) => a.field), model: r.compiler.model, prompt_version: r.compiler.prompt_version } });
+    return { kind: "ok", intent: row! };
+  });
 }
 
 export async function createIntent(d: EngineDeps, tenantId: string, shopperId: string, input: { policy: unknown; source_text?: string }): Promise<IntentResult> {

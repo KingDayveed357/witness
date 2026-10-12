@@ -15,7 +15,13 @@ import {
   revokeIntent,
   runScenario,
   SCENARIOS,
+  compileAndCreateIntent,
+  getHold,
+  issueHoldLink,
+  resolveHold,
   submitPurchase,
+  type HoldActor,
+  type HoldResult,
   type EngineDeps,
   type Principal,
 } from "@witness/engine";
@@ -85,11 +91,15 @@ export function buildApp(o: AppOptions): FastifyInstance {
   });
 
   // ---- intents ----------------------------------------------------------------------------
-  app.post<{ Body: { shopper_id?: string; policy?: unknown; source_text?: string } }>("/v1/intents", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
+  app.post<{ Body: { shopper_id?: string; policy?: unknown; source_text?: string; text?: string } }>("/v1/intents", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
     const who = req.principal!;
     const shopperId = shopperIdOf(who) ?? req.body?.shopper_id;
     if (!shopperId) return problem(reply, 422, "shopper_id required");
-    const r = await createIntent(d, who.tenantId, shopperId, { policy: req.body?.policy, ...(req.body?.source_text ? { source_text: req.body.source_text } : {}) });
+    // Free text -> AI-compiled DRAFT (shopper confirms every field); or a structured policy directly.
+    const r =
+      typeof req.body?.text === "string" && req.body.policy === undefined
+        ? await compileAndCreateIntent(d, who.tenantId, shopperId, req.body.text)
+        : await createIntent(d, who.tenantId, shopperId, { policy: req.body?.policy, ...(req.body?.source_text ? { source_text: req.body.source_text } : {}) });
     if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
     return reply.code(201).send(intentView(r.intent));
   });
@@ -188,6 +198,52 @@ export function buildApp(o: AppOptions): FastifyInstance {
       captures: pu.payments?.captures?.map((c: any) => ({ id: c.id, status: c.status, amount: c.amount })) ?? [],
     };
   });
+
+  /** Read-only view an agent needs to shop: what the shopper asked for. Agents can't edit intents. */
+  app.get<{ Params: { id: string } }>("/v1/intents/:id/summary", { preHandler: auth("agent:purchase", "shopper", "ops", "admin") }, async (req, reply) => {
+    const i = await getIntent(d, req.principal!.tenantId, req.params.id);
+    if (!i || i.status !== "CONFIRMED") return problem(reply, 404, "No confirmed intent with that id");
+    return { id: i.id, status: i.status, source_text: i.sourceText, policy: i.policy };
+  });
+
+  // ---- holds (shopper decides on a held purchase; funds stay authorized meanwhile) ----------
+  const holdActor = async (req: FastifyRequest, token: unknown): Promise<HoldActor | null> => {
+    const header = req.headers.authorization ?? "";
+    if (header.startsWith("Bearer ")) {
+      const who = await lookupApiKey(d.pool, header.slice(7).trim());
+      if (!who) return null;
+      req.principal = who;
+      const sid = shopperIdOf(who);
+      if (sid && who.scopes.includes("shopper")) return { shopperId: sid };
+      if (who.scopes.includes("admin")) return { admin: true };
+      return null;
+    }
+    return typeof token === "string" && token.length >= 20 ? { token } : null;
+  };
+  const sendHold = (reply: FastifyReply, r: HoldResult<unknown>) => (r.kind === "error" ? problem(reply, r.status, r.title, r.detail) : r.value);
+
+  app.post<{ Params: { id: string } }>("/v1/purchases/:id/hold-link", { preHandler: auth("shopper", "admin") }, async (req, reply) => {
+    const who = req.principal!;
+    const sid = shopperIdOf(who);
+    const r = await issueHoldLink(d, who.tenantId, req.params.id, sid ? { shopperId: sid } : { admin: true });
+    if (r.kind === "error") return problem(reply, r.status, r.title, r.detail);
+    // Shown once. Only the hash is stored.
+    return { path: `/holds/${req.params.id}?t=${r.value.token}`, token: r.value.token, expires_at: r.value.expires_at };
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { t?: string } }>("/v1/holds/:id", async (req, reply) => {
+    const actor = await holdActor(req, req.query.t);
+    if (!actor) return problem(reply, 401, "Unauthorized", "Sign in or use the link you were sent");
+    return sendHold(reply, await getHold(d, req.params.id, actor, req.principal?.tenantId));
+  });
+
+  for (const decision of ["approve", "deny"] as const) {
+    app.post<{ Params: { id: string }; Body: { token?: string } }>(`/v1/holds/:id/${decision}`, async (req, reply) => {
+      const actor = await holdActor(req, req.body?.token);
+      if (!actor) return problem(reply, 401, "Unauthorized", "Sign in or use the link you were sent");
+      return sendHold(reply, await resolveHold(d, req.params.id, decision, actor, req.principal?.tenantId));
+    });
+  }
 
   // ---- demo -------------------------------------------------------------------------------
   app.get("/v1/demo/scenarios", async () => Object.entries(SCENARIOS).map(([name, s]) => ({ name, title: s.title, expected: s.expected })));

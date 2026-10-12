@@ -11,6 +11,7 @@ import { handleJob, type ExecutorDeps } from "@witness/executor";
 import { PayPalClient } from "@witness/paypal";
 import { MoneyMovementClient } from "@witness/paypal/money-movement";
 import { freshDatabase } from "./db.ts";
+import { harnessAi } from "./fake-ai.ts";
 import { FakePayPal } from "./fake-paypal.ts";
 import { PAYEE } from "./seed.ts";
 
@@ -49,6 +50,7 @@ export async function createHarness(over: Partial<ExecutorDeps> = {}): Promise<H
     paypal: new PayPalClient(creds),
     money: new MoneyMovementClient(creds),
     catalog: new FixtureCatalog(),
+    ai: harnessAi(),
     now: () => clock.now,
     ...over,
   };
