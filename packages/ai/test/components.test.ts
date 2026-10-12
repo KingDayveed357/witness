@@ -9,6 +9,7 @@ import {
   UnavailableLlm,
   aiScreen,
   amountsInText,
+  settleDeferred,
   checkInjection,
   checkSoftConstraints,
   compileIntent,
@@ -238,5 +239,39 @@ describe("Anthropic adapter fails closed", () => {
     const e = await new AnthropicLlm({ client: stub(null, new Error("sk-ant-secret-should-not-leak")) }).structured(PROMPTS.injection, "x", schema);
     expect(e).toMatchObject({ ok: false, reason: "error" });
     expect(JSON.stringify(e)).not.toMatch(/sk-ant/);
+  });
+});
+
+describe("category judged semantically", () => {
+  const deferred = [{ id: "category", result: "unknown" as const, detail: "x", line: "P1", defers_to: "ai.soft:category" }];
+  const verdict = (v: string, quote: string) => new FakeLlm()
+    .on("injection", () => ({ suspected: false, confidence: 0.9, spans: [] }))
+    .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "P1", verdict: v, confidence: 0.95, evidence_quote: quote }] }));
+  const cart = { retailer: "rei.com", currency: "USD" as const, total_cents: 100, lines: [{ product_id: "P1", name: "x", unit_cents: 100, quantity: 1, attributes: {} }] };
+  const pol = PolicyV1.parse({ ...policy, soft: [], category: "trail-running shoes" });
+
+  test("the implicit constraint is sent only when a check deferred", async () => {
+    const ai = verdict("satisfies", "Alpine Trail Jacket");
+    await aiScreen(ai, pol, cart, new Map([["P1", facts()]]), deferred);
+    expect(ai.calls.find((c) => c.prompt === "semantic")!.input).toMatch(/is a trail-running shoes/);
+    const ai2 = verdict("satisfies", "x");
+    await aiScreen(ai2, pol, cart, new Map([["P1", facts()]]), []);
+    expect(ai2.calls.some((c) => c.prompt === "semantic")).toBe(false);
+  });
+
+  test("a grounded 'satisfies' settles the deferred check; 'unknown' leaves it (HOLD)", async () => {
+    const yes = await aiScreen(verdict("satisfies", "Alpine Trail Jacket"), pol, cart, new Map([["P1", facts()]]), deferred);
+    expect(settleDeferred(deferred, yes)).toEqual([]);
+    const unsure = await aiScreen(verdict("unknown", ""), pol, cart, new Map([["P1", facts()]]), deferred);
+    expect(settleDeferred(deferred, unsure)).toEqual(deferred);
+  });
+
+  test("an ungrounded 'satisfies' does not settle it", async () => {
+    const r = await aiScreen(verdict("satisfies", "certainly a trail shoe"), pol, cart, new Map([["P1", facts()]]), deferred);
+    expect(settleDeferred(deferred, r)).toEqual(deferred);
+  });
+
+  test("settling never applies across lines", () => {
+    expect(settleDeferred(deferred, [{ id: "ai.soft:category", result: "pass", detail: "", line: "P2" }])).toEqual(deferred);
   });
 });

@@ -62,6 +62,35 @@ describe("AI in the pipeline", () => {
     expect(ai.calls).toHaveLength(0);
   });
 
+  test("category: a road shoe judged 'violates' is REJECTED before PayPal", async () => {
+    h.d.ai = new FakeLlm()
+      .on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }))
+      .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "RD-BLU-10", verdict: "violates", confidence: 0.95, evidence_quote: "Road-running shoes" }] }));
+    const p = await buy("RD-BLU-10");
+    expect(p.state).toBe("REJECTED");
+    expect(h.fake.count("POST", ORDERS)).toBe(0);
+  });
+
+  test("category: a real-taxonomy listing ('Athletic Shoes') judged a trail shoe proceeds to capture", async () => {
+    const { FixtureCatalog } = await import("@witness/catalog");
+    const base = new FixtureCatalog();
+    h.d.catalog = {
+      name: "test",
+      getProducts: async (ids) => {
+        const r = await base.getProducts(ids);
+        const f = r.facts.get("TRL-GRY-10");
+        if (f) r.facts.set("TRL-GRY-10", { ...f, title: "Wildhorse Trail Running Shoe, Slate Grey", category: "Apparel & Accessories > Shoes > Athletic Shoes" });
+        return r;
+      },
+    };
+    h.d.ai = new FakeLlm()
+      .on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }))
+      .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "TRL-GRY-10", verdict: "satisfies", confidence: 0.93, evidence_quote: "Trail Running Shoe" }] }));
+    const p = await buy("TRL-GRY-10");
+    expect(p.reasons).toEqual([]);
+    expect(p.state).toBe("CAPTURE_APPROVED");
+  });
+
   test("a model timeout on a clean cart holds instead of capturing", async () => {
     const ai = new FakeLlm().on("injection", () => ({ suspected: false, confidence: 1, spans: [] }));
     ai.failAll("timeout");

@@ -65,3 +65,25 @@ describe("catalog sources", () => {
     expect(r.errors).toEqual([]);
   });
 });
+
+describe("Channel3 live contract (response captured 2026-10-12)", () => {
+  test("a real product normalises: offers priced from price.price, brand, category path, attributes", async () => {
+    const { readFileSync } = await import("node:fs");
+    const live = JSON.parse(readFileSync(new URL("./fixtures/channel3-product.json", import.meta.url), "utf8")).data;
+    const f = normaliseChannel3(live);
+    expect(f.product_id).toBe("6WJpBHE");
+    expect(f.title).toMatch(/Wildhorse/);
+    expect(f.offers).toEqual([{ retailer: "nike.com", price_cents: 16500, currency: "USD", availability: "InStock", condition: "new" }]);
+    expect(f.brand).toBeTruthy();
+    expect(f.category).toBe("Apparel & Accessories > Shoes > Athletic Shoes");
+    expect(f.attributes).toMatchObject({ footwear_material: "Nylon, Textile", material: "mesh, rubber", activity: "Running, Walking" });
+  });
+
+  test("a style-code colour label is NOT treated as a colour (so 'not white' holds instead of passing)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const live = JSON.parse(readFileSync(new URL("./fixtures/channel3-product.json", import.meta.url), "utf8")).data;
+    expect(normaliseChannel3(live).attributes["color"]).toBeUndefined();
+    const named = { ...live, variants: { ...live.variants, selected: [{ name: "Color", label: "Summit White" }, { name: "Size", label: "10" }] } };
+    expect(normaliseChannel3(named).attributes).toMatchObject({ color: "Summit White", size: "10" });
+  });
+});

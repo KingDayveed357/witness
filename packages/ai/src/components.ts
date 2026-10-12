@@ -60,11 +60,12 @@ export const SemanticOut = z.object({
 
 const normalise = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
-export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, facts: ProductFacts[]): Promise<Check[]> {
-  if (!policy.soft.length) return [];
+export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, facts: ProductFacts[], implicit: { id: string; text: string }[] = []): Promise<Check[]> {
+  const constraints = [...policy.soft, ...implicit];
+  if (!constraints.length) return [];
   const input = JSON.stringify(
     {
-      constraints: policy.soft.map((s) => ({ id: s.id, text: s.text })),
+      constraints: constraints.map((s) => ({ id: s.id, text: s.text })),
       products: facts.map((f) => ({ product_id: f.product_id, title: f.title, brand: f.brand ?? null, category: f.category ?? null, attributes: f.attributes, description: f.description ?? null })),
     },
     null,
@@ -72,7 +73,7 @@ export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, fact
   );
   const r = await ai.structured(PROMPTS.semantic, input, SemanticOut);
   const out: Check[] = [];
-  for (const s of policy.soft) {
+  for (const s of constraints) {
     for (const f of facts) {
       const id = `ai.soft:${s.id}`;
       if (!r.ok) {
@@ -97,11 +98,25 @@ export async function checkSoftConstraints(ai: LlmClient, policy: PolicyV1, fact
   return out;
 }
 
-/** All AI checks for a cart that passed deterministic screening. Runs the two calls in parallel. */
-export async function aiScreen(ai: LlmClient, policy: PolicyV1, cart: ResolvedCart, facts: Map<string, ProductFacts>): Promise<Check[]> {
+/**
+ * All AI checks for a cart that passed deterministic screening. Runs the two calls in parallel.
+ * If deterministic checks deferred to a semantic judgement (category), the matching implicit
+ * constraint is added, e.g. "is a trail-running shoe".
+ */
+export async function aiScreen(ai: LlmClient, policy: PolicyV1, cart: ResolvedCart, facts: Map<string, ProductFacts>, deterministic: Check[] = []): Promise<Check[]> {
   const lineFacts = cart.lines.map((l) => facts.get(l.product_id)).filter((f): f is ProductFacts => Boolean(f));
-  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), checkSoftConstraints(ai, policy, lineFacts)]);
+  const implicit = deterministic.some((c) => c.defers_to === "ai.soft:category") && policy.category ? [{ id: "category", text: `is a ${policy.category}` }] : [];
+  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), checkSoftConstraints(ai, policy, lineFacts, implicit)]);
   return [injection, ...soft];
+}
+
+/**
+ * Drop deterministic "unknown" checks that a definitive AI verdict settled as a pass for the same
+ * line. A failing verdict needs no settling (fail already rejects); an unknown verdict leaves the
+ * deferred check in place, so the purchase holds.
+ */
+export function settleDeferred(deterministic: Check[], ai: Check[]): Check[] {
+  return deterministic.filter((c) => !(c.result === "unknown" && c.defers_to && ai.some((a) => a.id === c.defers_to && a.line === c.line && a.result === "pass")));
 }
 
 // ---------------------------------------------------------------------------------------------

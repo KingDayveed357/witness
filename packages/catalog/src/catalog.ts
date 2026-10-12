@@ -4,9 +4,8 @@
 // Channel3: GET https://api.trychannel3.com/v1/products/{id} with header x-api-key (Verified in
 // docs.trychannel3.com/guides/product-detail; the endpoint is free). Offer fields `domain`,
 // `price.amount`, `price.currency`, `availability`, `condition` are Verified (guides/offer).
-// Brand, category and attribute field shapes are NOT yet verified against a live response, so the
-// normaliser accepts only what it can map confidently and drops the rest (a missing attribute
-// becomes HOLD in screening, never a pass). Contract test pending a Channel3 key.
+// The live response shape was verified on 2026-10-12 (see normaliseChannel3). Anything the normaliser
+// can't map confidently is dropped: a missing attribute becomes HOLD in screening, never a pass.
 
 import { CURRENCIES, numberToCents, ProductFacts, type Offer } from "@witness/core";
 import { fixtureFacts } from "./fixtures.ts";
@@ -39,7 +38,16 @@ export class FixtureCatalog implements CatalogSource {
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 const nameOf = (v: unknown): string | undefined => str(v) ?? (v && typeof v === "object" ? str((v as Record<string, unknown>)["name"]) : undefined);
 
-/** Map a Channel3 product object to ProductFacts, or throw if the essentials are missing. */
+/**
+ * Map a Channel3 product object to ProductFacts, or throw if the essentials are missing.
+ *
+ * Shape verified against a live response on 2026-10-12 (test/fixtures/channel3-product.json).
+ * It differs from the docs in places: the offer price is `price.price` (docs show `price.amount`),
+ * brands are a `brands[]` array, category is an object with a `path`, and attributes live in
+ * `structured_attributes` (arrays) and `variants.selected`. Variant "Color" labels can be style
+ * codes (e.g. "FV2338-201"), so only plain-word labels are taken as colours: otherwise colour stays
+ * unknown and an excluded-colour policy holds instead of passing.
+ */
 export function normaliseChannel3(raw: unknown, now = new Date()): ProductFacts {
   if (!raw || typeof raw !== "object") throw new Error("Channel3 product is not an object");
   const p = raw as Record<string, unknown>;
@@ -47,7 +55,7 @@ export function normaliseChannel3(raw: unknown, now = new Date()): ProductFacts 
   for (const o of Array.isArray(p["offers"]) ? (p["offers"] as Record<string, unknown>[]) : []) {
     const price = o["price"] as Record<string, unknown> | undefined;
     const currency = str(price?.["currency"]);
-    const amount = price?.["amount"];
+    const amount = price?.["price"] ?? price?.["amount"];
     const retailer = str(o["domain"])?.toLowerCase();
     if (!retailer || typeof amount !== "number" || !currency || !(CURRENCIES as readonly string[]).includes(currency)) continue;
     let price_cents: number;
@@ -63,18 +71,43 @@ export function normaliseChannel3(raw: unknown, now = new Date()): ProductFacts 
   }
 
   const attributes: Record<string, string> = {};
-  const rawAttrs = p["attributes"];
-  if (rawAttrs && typeof rawAttrs === "object" && !Array.isArray(rawAttrs)) {
-    for (const [k, v] of Object.entries(rawAttrs)) if (str(v)) attributes[k.toLowerCase()] = str(v)!;
+  const put = (k: string, v: unknown) => {
+    const val = Array.isArray(v) ? v.map(str).filter(Boolean).join(", ") : str(v);
+    if (val) attributes[k.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")] = val;
+  };
+  for (const key of ["attributes", "structured_attributes"]) {
+    const obj = p[key];
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) for (const [k, v] of Object.entries(obj)) put(k, v);
   }
+  if (Array.isArray(p["materials"])) put("material", p["materials"]);
+  const selected = (p["variants"] as { selected?: { name?: unknown; label?: unknown }[] } | undefined)?.selected;
+  for (const sel of Array.isArray(selected) ? selected : []) {
+    const name = str(sel.name)?.toLowerCase();
+    const label = str(sel.label);
+    if (!name || !label) continue;
+    if (name === "color" || name === "colour") {
+      if (/^[A-Za-z][A-Za-z /&-]{1,40}$/.test(label)) attributes["color"] = label;
+    } else put(name, label);
+  }
+
+  const brands = Array.isArray(p["brands"]) ? (p["brands"] as unknown[]) : [];
+  const brand = nameOf(brands[0]) ?? nameOf(p["brand"]);
+  const cat = p["category"];
+  let category: string | undefined = str(cat);
+  if (!category && cat && typeof cat === "object") {
+    const path = (cat as { path?: { title?: unknown }[] }).path;
+    category = Array.isArray(path) && path.length ? path.map((x) => str(x.title)).filter(Boolean).join(" > ") : str((cat as { title?: unknown }).title);
+  }
+  const features = Array.isArray(p["key_features"]) ? (p["key_features"] as unknown[]).map(str).filter(Boolean) : [];
+  const description = [str(p["description"]), ...features].filter(Boolean).join("\n").slice(0, 10_000) || undefined;
 
   return ProductFacts.parse({
     product_id: str(p["id"]),
     title: str(p["title"]),
-    brand: nameOf(p["brand"]),
-    category: nameOf(p["category"]),
+    brand,
+    category,
     attributes,
-    description: str(p["description"])?.slice(0, 10_000),
+    description,
     offers,
     source: "channel3",
     fetched_at: now.toISOString(),

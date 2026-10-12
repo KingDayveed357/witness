@@ -1,0 +1,310 @@
+{
+  "captured_at": "2026-10-12T09:01:40.984Z",
+  "note": "Live GET /v1/products/6WJpBHE; buy URLs (affiliate ids) and images removed",
+  "status": 200,
+  "data": {
+    "id": "6WJpBHE",
+    "title": "Nike Wildhorse Trail Running Shoes",
+    "description": "These Nike Wildhorse 10 trail running shoes are designed for comfort and traction on tough terrain. They feature a breathable mesh upper and responsive ReactX foam for energy return. The Nike Trail ATC outsole provides enhanced grip on inclines and in wet conditions, ensuring a confident ride on various surfaces. Perfect for exploring your favorite trails or tackling challenging routes.",
+    "brands": [
+      {
+        "id": "MpZS",
+        "name": "Nike"
+      }
+    ],
+    "category": {
+      "slug": "athletic-shoes",
+      "title": "Athletic Shoes",
+      "path": [
+        {
+          "slug": "apparel-accessories",
+          "title": "Apparel & Accessories"
+        },
+        {
+          "slug": "shoes",
+          "title": "Shoes"
+        },
+        {
+          "slug": "athletic-shoes",
+          "title": "Athletic Shoes"
+        }
+      ],
+      "has_children": false
+    },
+    "gender": "male",
+    "age": null,
+    "materials": [
+      "mesh",
+      "rubber"
+    ],
+    "key_features": [
+      "Breathable Upper",
+      "Springy Foam",
+      "Nike Trail ATC Outsole",
+      "Reflective details",
+      "Light foam plus a grippy outsole equals comfort on tough terrain",
+      "Responsive ReactX foam",
+      "Go-to trail traction pattern",
+      "Lightweight upper",
+      "Engineered mesh with open holes for breathability",
+      "ReactX foam midsole gives you lightweight energy return"
+    ],
+    "colors": [
+      {
+        "hex": "#826e55",
+        "percentage": 0.312
+      },
+      {
+        "hex": "#c9b79d",
+        "percentage": 0.1496
+      },
+      {
+        "hex": "#151111",
+        "percentage": 0.1348
+      },
+      {
+        "hex": "#b39b80",
+        "percentage": 0.1264
+      },
+      {
+        "hex": "#e8d9c3",
+        "percentage": 0.1263
+      },
+      {
+        "hex": "#3d342b",
+        "percentage": 0.0867
+      },
+      {
+        "hex": "#884031",
+        "percentage": 0.0641
+      }
+    ],
+    "offers": [
+      {
+        "domain": "nike.com",
+        "price": {
+          "price": 165,
+          "compare_at_price": null,
+          "currency": "USD"
+        },
+        "availability": "InStock",
+        "condition": "new",
+        "max_commission_rate": 0.056,
+        "dimensions": {
+          "length": null,
+          "width": null,
+          "height": null,
+          "weight": {
+            "number": 311,
+            "unit": "g"
+          }
+        }
+      }
+    ],
+    "variants": {
+      "options": [
+        {
+          "name": "Color",
+          "values": [
+            {
+              "label": "Ironstone/College Grey/Velvet Brown/Cave Stone",
+              "exists": true,
+              "available": null,
+              "product_id": "C0hHmKV"
+            },
+            {
+              "label": "Black/Peat Moss/Volt Ice/Phantom",
+              "exists": true,
+              "available": null,
+              "product_id": "rY1U256"
+            },
+            {
+              "label": "Summit White/Safety Orange/Phantom/Black, Light Orewood Brown/Safety Orange/Cream II, Silver Lilac/Tattoo/Light Silver/Barely Green, Black/Anthracite/Platinum Tint/Wolf Grey",
+              "exists": true,
+              "available": null,
+              "product_id": "NqIkBjH"
+            },
+            {
+              "label": "Summit White/Safety Orange/Phantom/Black",
+              "exists": true,
+              "available": null,
+              "product_id": "9y8CehR"
+            },
+            {
+              "label": "FV2338-201",
+              "exists": true,
+              "available": null,
+              "product_id": "6WJpBHE"
+            }
+          ]
+        },
+        {
+          "name": "Size",
+          "values": [
+            {
+              "label": "3.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "4",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "4.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "5.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "6",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "6.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "7",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "7.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "8",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "8.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "9",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "9.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "10",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "10.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "11",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "11.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "12",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "12.5",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "13",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "14",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            },
+            {
+              "label": "15",
+              "exists": false,
+              "available": null,
+              "product_id": null
+            }
+          ]
+        }
+      ],
+      "selected": [
+        {
+          "name": "Color",
+          "label": "FV2338-201"
+        }
+      ]
+    },
+    "structured_attributes": {
+      "footwear-material": [
+        "Nylon",
+        "Textile"
+      ],
+      "shoe-features": [
+        "Breathable design",
+        "Cushioned",
+        "Lightweight"
+      ],
+      "activity": [
+        "Running",
+        "Walking"
+      ],
+      "heel-height-type": [
+        "Flat"
+      ]
+    },
+    "ratings": {
+      "value": 4.62,
+      "count": 52,
+      "source_count": 1
+    }
+  }
+}

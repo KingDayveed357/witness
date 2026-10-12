@@ -28,8 +28,10 @@ describe("screening outcomes", () => {
     expect(failed(screen(POLICY, "TRL-PRO-10").checks)).toContain("max_total");
   });
 
-  test("wrong category is rejected", () => {
-    expect(failed(screen(POLICY, "RD-BLU-10").checks)).toContain("category");
+  test("a non-literal category match defers to the semantic check (never a silent pass)", () => {
+    const r = screen(POLICY, "RD-BLU-10");
+    expect(r.outcome).toBe("HOLD");
+    expect(r.checks.find((c) => c.id === "category")).toMatchObject({ result: "unknown", defers_to: "ai.soft:category" });
   });
 
   test("missing size attribute holds, never proceeds", () => {

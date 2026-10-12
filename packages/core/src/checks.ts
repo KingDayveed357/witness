@@ -16,6 +16,11 @@ export interface Check {
   kind?: "deterministic" | "ai";
   model?: string;
   prompt_version?: string;
+  /**
+   * An "unknown" deterministic check that an AI check may settle (e.g. category: retailer taxonomies
+   * rarely match the shopper's words literally). Settled only by a definitive, grounded AI verdict.
+   */
+  defers_to?: string;
 }
 
 export const PurchaseRequest = z.strictObject({
@@ -140,12 +145,14 @@ export function screenCart(policy: PolicyV1, cart: ResolvedCart, ctx: ScreenCont
       if (policy.products.includes(id)) add("product.allowed", "pass", `${id} is an allowed product`, id);
       else if (policy.substitution === "deny") add("product.allowed", "fail", `${id} is not an allowed product; substitution denied`, id);
       else if (policy.substitution === "hold") add("product.allowed", "unknown", `${id} is a substitute; policy says ask`, id);
-      else add("product.allowed", categoryMatches ? "pass" : "fail", `${id} substitute in category ${l.category ?? "(none)"}`, id);
+      else if (categoryMatches) add("product.allowed", "pass", `${id} substitute in category ${l.category}`, id);
+      else checks.push({ id: "product.allowed", result: "unknown", detail: `${id} is a substitute; whether it is a ${policy.category} is judged semantically`, line: id, defers_to: "ai.soft:category" });
     }
 
     if (policy.category !== undefined) {
       if (l.category === undefined) add("category", "unknown", "listing has no category", id);
-      else add("category", categoryMatches ? "pass" : "fail", `${l.category} vs ${policy.category}`, id);
+      else if (categoryMatches) add("category", "pass", `${l.category} vs ${policy.category}`, id);
+      else checks.push({ id: "category", result: "unknown", detail: `listing category "${l.category}" doesn't literally say "${policy.category}"; judged semantically`, line: id, defers_to: "ai.soft:category" });
     }
 
     if (policy.hard.size !== undefined) {

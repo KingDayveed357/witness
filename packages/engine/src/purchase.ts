@@ -39,7 +39,7 @@ import {
   type PurchaseRow,
   type Tx,
 } from "@witness/db";
-import { UnavailableLlm, aiScreen } from "@witness/ai";
+import { UnavailableLlm, aiScreen, settleDeferred } from "@witness/ai";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { DEFAULT_ADAPTERS, logOf, nowOf, type EngineDeps, type Principal } from "./deps.ts";
 
@@ -181,10 +181,13 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     const all: Check[] = [...resolveChecks];
     if (!shopper?.vaultId) all.push({ id: "shopper.vault", result: "fail", detail: "shopper has no saved PayPal wallet" });
     if (cart) all.push(...screenCart(policy, cart, { now, purchasesUsed: used.length }));
-    await recordChecks(tx, purchaseId, "SCREEN", all);
 
     const facts = Object.fromEntries(catalog.facts);
-    if (screenOutcome(all) === "REJECT" || !cart) {
+    const rejected = screenOutcome(all) === "REJECT" || !cart;
+    // Checks deferred to an AI judgement are recorded once settled (phase 3), so the stored checks
+    // always reflect the effective decision.
+    await recordChecks(tx, purchaseId, "SCREEN", rejected ? all : all.filter((c) => !c.defers_to));
+    if (rejected) {
       await rejectScreened(tx, who.tenantId, purchaseId, all, { retailer: req.retailer, facts, cart: cart ?? null, amountCents: cart?.total_cents ?? null, currency: cart?.currency ?? null });
       return { purchaseId, next: false as const };
     }
@@ -206,12 +209,20 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
   if (step.next) {
     // AI checks run outside any transaction. They can only make the decision stricter, and any
     // failure (including no provider configured) is "unknown", which becomes HOLD.
-    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts);
+    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts, step.deterministic);
     const proceed = await withTx(d.pool, async (tx) => {
       const locked = (await tx.db.select().from(purchases).where(eq(purchases.id, step.purchaseId)).for("update").limit(1))[0];
       if (!locked || locked.state !== "SCREENING") return false;
-      await recordChecks(tx, step.purchaseId, "SCREEN", aiChecks);
-      const all = [...step.deterministic, ...aiChecks];
+      const effective = settleDeferred(step.deterministic, aiChecks);
+      const deferred = step.deterministic
+        .filter((x) => x.defers_to)
+        .map((x) => {
+          if (effective.includes(x)) return x;
+          const by = aiChecks.find((y) => y.id === x.defers_to && y.line === x.line);
+          return { ...x, result: "pass" as const, detail: `${x.detail}; settled by ${x.defers_to}: ${by?.detail ?? ""}` };
+        });
+      await recordChecks(tx, step.purchaseId, "SCREEN", [...deferred, ...aiChecks]);
+      const all = [...effective, ...aiChecks];
       const outcome = screenOutcome(all);
       if (outcome === "REJECT") {
         await rejectScreened(tx, who.tenantId, step.purchaseId, all, {});
