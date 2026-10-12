@@ -1,4 +1,4 @@
-# Witness build plan **Done**: provider interface, Anthropic adapter, fake, versioned prompts, fail-closed tests | **Done**: POST /v1/intents {text}; incomplete drafts block confirmation | **Done**: three-phase screening; category judged semantically (ADR-0012) | **Done (API)**: one-time links, approve re-checks PayPal, deny voids; phone page is Stage 5 | **Done**: tools tested against the real API; live run needs ANTHROPIC_API_KEY | **Runner + 72 cases done**: real-model numbers need ANTHROPIC_API_KEY | **Done**: AI draft with template fallback |
+# Witness build plan
 
 Status: **Draft for Checkpoint 2** · 2026-10-11 · Target submission **Nov 10** (deadline Nov 12, 12:00 PT = 21:00 Lagos)
 
@@ -35,13 +35,13 @@ Owner key: **C** = Claude (engineering), **D** = Dave (decisions, sandbox-buyer 
 
 | # | Task | Owner | Acceptance |
 |---|---|---|---|
-| 4.1 | `packages/ai`: LLM interface, Anthropic adapter, fake adapter, fail-closed wrapper, versioned prompts | C, D (API key) | Fault-injection tests → HOLD |
-| 4.2 | Intent compiler + shopper confirm flow (API) | C | F1, F2 |
-| 4.3 | Injection classifier + semantic verifier wired into screening and verify | C | F5 |
-| 4.4 | HOLD flow: one-time link, phone approval page, 72h auto-void | C, D (test on phone) | S3, S4, S12 |
-| 4.5 | Reference agent (Witness tools + Channel3 search only) | C | Runs the five judge scenarios via the API |
-| 4.6 | Eval suite 1: 72 cases, runner, report, CI smoke + manual full run | C, D (review cases) | Report published; targets met or gaps stated |
-| 4.7 | Evidence writer | C | Narrative cites only record fields; numbers template-inserted |
+| 4.1 | `packages/ai`: LLM interface, Anthropic adapter, fake adapter, fail-closed wrapper, versioned prompts | C, D (API key) | Fault-injection tests → HOLD | **Done**: provider interface, Anthropic adapter, fake, versioned prompts, fail-closed tests |
+| 4.2 | Intent compiler + shopper confirm flow (API) | C | F1, F2 | **Done**: POST /v1/intents {text}; incomplete drafts block confirmation |
+| 4.3 | Injection classifier + semantic verifier wired into screening and verify | C | F5 | **Done**: three-phase screening; category judged semantically (ADR-0012) |
+| 4.4 | HOLD flow: one-time link, phone approval page, 72h auto-void | C, D (test on phone) | S3, S4, S12 | **Done (API)**: one-time links, approve re-checks PayPal, deny voids; phone page is Stage 5 |
+| 4.5 | Reference agent (Witness tools + Channel3 search only) | C | Runs the five judge scenarios via the API | **Done**: tools tested against the real API; a live run needs ANTHROPIC_API_KEY |
+| 4.6 | Eval suite 1: 72 cases, runner, report, CI smoke + manual full run | C, D (review cases) | Report published; targets met or gaps stated | **Runner + 72 cases done**: real-model numbers need ANTHROPIC_API_KEY |
+| 4.7 | Evidence writer | C | Narrative cites only record fields; numbers template-inserted | **Done**: AI draft with template fallback |
 
 ## Stage 5: Product surface and sponsors (Oct 26–Nov 1)
 
