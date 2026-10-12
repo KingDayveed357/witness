@@ -214,7 +214,7 @@ export async function compileIntent(
     max_purchases: 1,
   };
   const complete = PolicyV1.safeParse(draft).success;
-  return { kind: "ok", draft, complete, ambiguities: amb, confidence: v.confidence, compiler: { model: r.model, prompt_version: r.promptVersion, latency_ms: r.latencyMs } };
+  return { kind: "ok", draft, complete, ambiguities: amb, confidence: v.confidence, compiler: { model: r.model ?? "unknown", prompt_version: r.promptVersion, latency_ms: r.latencyMs } };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -236,5 +236,5 @@ export async function writeEvidence(ai: LlmClient, record: Record<string, unknow
   if (/\d/.test(n.replace(/\{\{\w+\}\}/g, ""))) return { kind: "error", reason: "the draft wrote numbers itself instead of using placeholders" };
   if (/(?<!not (?:cryptographically )?)\bsigned\b/i.test(n)) return { kind: "error", reason: 'the draft calls the instruction "signed"' };
   const text = n.replace(/\{\{(\w+)\}\}/g, (_, k: keyof EvidenceValues) => values[k]);
-  return { kind: "ok", text, model: r.model, prompt_version: r.promptVersion };
+  return { kind: "ok", text, model: r.model ?? "unknown", prompt_version: r.promptVersion };
 }

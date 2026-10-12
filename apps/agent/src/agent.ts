@@ -1,10 +1,17 @@
 // A small Claude tool-use agent that shops through Witness. It's used in the demo and as the target
 // of the "try to beat our agent" page: it can be talked into anything, and that's the point.
+//
+// Model: the approved Haiku only. The agent is deliberately an outsider (it can't import Witness
+// packages), so it carries its own copy of the allowlist; a test asserts it matches
+// packages/ai/src/models.ts. Usage is summed per turn and the run stops at a spend cap.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { getIntentSummary, getPurchaseStatus, searchProducts, submitPurchase, type AgentEnv } from "./tools.ts";
+
+export const AGENT_MODELS = { "claude-haiku-5-5": { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mMultiplier: 1.25, cacheReadMultiplier: 0.1 } } as const;
+export type AgentModel = keyof typeof AGENT_MODELS;
 
 export const AGENT_SYSTEM = `You are a shopping agent buying on behalf of a person. Their confirmed request is available through get_intent_summary: read it first.
 
@@ -46,16 +53,51 @@ export function buildTools(env: AgentEnv, intentId: string) {
   ];
 }
 
-export async function runAgent(o: { env: AgentEnv; intentId: string; instruction?: string; apiKey?: string; model?: string; client?: Anthropic }): Promise<{ text: string; stopReason: string | null }> {
-  const client = o.client ?? new Anthropic(o.apiKey ? { apiKey: o.apiKey } : {});
-  const final = await client.beta.messages.toolRunner({
-    model: o.model ?? "claude-opus-5-5",
-    max_tokens: 16_000,
-    max_iterations: 12,
-    system: AGENT_SYSTEM,
+export interface AgentRun {
+  text: string;
+  stopReason: string | null;
+  turns: number;
+  usage: { input_tokens: number; output_tokens: number; cache_creation_input_tokens: number; cache_read_input_tokens: number };
+  estimated_cost_usd: number;
+  stopped_for_budget: boolean;
+}
+
+export async function runAgent(o: { env: AgentEnv; intentId: string; instruction?: string; apiKey?: string; model?: string; maxSpendUsd?: number; client?: Anthropic }): Promise<AgentRun> {
+  const model = (o.model ?? "claude-haiku-5-5") as AgentModel;
+  const price = AGENT_MODELS[model];
+  if (!price) throw new Error(`agent model "${o.model}" is not approved (allowed: ${Object.keys(AGENT_MODELS).join(", ")})`);
+  const client = o.client ?? new Anthropic({ ...(o.apiKey ? { apiKey: o.apiKey } : {}), maxRetries: 2 });
+  const maxSpend = o.maxSpendUsd ?? 0.05;
+  const usage = { input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 };
+  const cost = () => (usage.input_tokens * price.inputPerMTok + usage.cache_creation_input_tokens * price.inputPerMTok * price.cacheWrite5mMultiplier + usage.cache_read_input_tokens * price.inputPerMTok * price.cacheReadMultiplier + usage.output_tokens * price.outputPerMTok) / 1e6;
+
+  const runner = client.beta.messages.toolRunner({
+    model,
+    max_tokens: 4096,
+    max_iterations: 8,
+    output_config: { effort: "low" },
+    system: [{ type: "text", text: AGENT_SYSTEM, cache_control: { type: "ephemeral" } }],
     tools: buildTools(o.env, o.intentId),
     messages: [{ role: "user", content: o.instruction ?? "Please buy what I asked for." }],
   });
-  const text = final.content.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
-  return { text, stopReason: final.stop_reason ?? null };
+  let last: Anthropic.Beta.BetaMessage | null = null;
+  let turns = 0;
+  let stoppedForBudget = false;
+  for await (const message of runner) {
+    turns++;
+    last = message;
+    const u = message.usage;
+    usage.input_tokens += u.input_tokens ?? 0;
+    usage.output_tokens += u.output_tokens ?? 0;
+    usage.cache_creation_input_tokens += u.cache_creation_input_tokens ?? 0;
+    usage.cache_read_input_tokens += u.cache_read_input_tokens ?? 0;
+    if (message.model !== model) throw new Error(`the API answered with ${message.model}, not the approved ${model}`);
+    // Each further turn costs at most ~max_tokens output plus the growing context; stop well before the cap.
+    if (cost() + (4096 * price.outputPerMTok) / 1e6 > maxSpend) {
+      stoppedForBudget = true;
+      break;
+    }
+  }
+  const text = (last?.content ?? []).map((b) => (b.type === "text" ? b.text : "")).join("").trim();
+  return { text: stoppedForBudget ? `${text}\n[stopped: agent spend cap $${maxSpend.toFixed(2)} reached]`.trim() : text, stopReason: last?.stop_reason ?? null, turns, usage, estimated_cost_usd: Number(cost().toFixed(6)), stopped_for_budget: stoppedForBudget };
 }

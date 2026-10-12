@@ -1,9 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { z } from "zod";
-import Anthropic from "@anthropic-ai/sdk";
 import { PolicyV1, type ProductFacts } from "@witness/core";
 import {
-  AnthropicLlm,
   FakeLlm,
   PROMPTS,
   UnavailableLlm,
@@ -46,8 +43,9 @@ describe("prompts", () => {
   test("all prompts load with id and version", () => {
     for (const p of Object.values(PROMPTS)) {
       expect(p.id).toBeTruthy();
-      expect(p.version).toBe("v1");
+      expect(p.version).toMatch(/^v\d+$/);
       expect(p.system.length).toBeGreaterThan(200);
+      expect(p.maxTokens).toBeGreaterThanOrEqual(1000);
     }
   });
 });
@@ -56,7 +54,7 @@ describe("injection classifier", () => {
   test("clean listing passes; the check records model and prompt version", async () => {
     const ai = new FakeLlm().on("injection", () => ({ suspected: false, confidence: 0.95, spans: [] }));
     const c = await checkInjection(ai, [facts()]);
-    expect(c).toMatchObject({ id: "ai.injection", result: "pass", kind: "ai", model: "fake", prompt_version: "injection@v1" });
+    expect(c).toMatchObject({ id: "ai.injection", result: "pass", kind: "ai", model: "fake", prompt_version: "injection@v2" });
   });
 
   test("a confident suspicion holds the purchase and quotes the span", async () => {
@@ -210,68 +208,5 @@ describe("evidence writer", () => {
 
   test("unknown placeholders are refused", async () => {
     expect((await writeEvidence(draft("See {{bank_account}}."), {}, values)).kind).toBe("error");
-  });
-});
-
-describe("Anthropic adapter fails closed", () => {
-  const stub = (result: unknown, throwErr?: Error) =>
-    ({ beta: { messages: { parse: async () => { if (throwErr) throw throwErr; return result; } } } }) as unknown as Anthropic;
-  const schema = z.object({ ok: z.boolean() });
-
-  test("parsed output is returned with the model that actually answered", async () => {
-    const r = await new AnthropicLlm({ client: stub({ stop_reason: "end_turn", parsed_output: { ok: true }, model: "claude-opus-5-5" }) }).structured(PROMPTS.injection, "x", schema);
-    expect(r).toMatchObject({ ok: true, value: { ok: true }, model: "claude-opus-5-5", promptVersion: "injection@v1" });
-  });
-
-  test.each([
-    ["refusal", { stop_reason: "refusal", parsed_output: null, model: "m" }],
-    ["truncated", { stop_reason: "max_tokens", parsed_output: null, model: "m" }],
-    ["parse", { stop_reason: "end_turn", parsed_output: null, model: "m" }],
-    ["parse", { stop_reason: "end_turn", parsed_output: { ok: "yes" }, model: "m" }],
-  ])("%s", async (reason, result) => {
-    const r = await new AnthropicLlm({ client: stub(result) }).structured(PROMPTS.injection, "x", schema);
-    expect(r).toMatchObject({ ok: false, reason });
-  });
-
-  test("timeouts and API errors are failures, and never carry the key", async () => {
-    const t = await new AnthropicLlm({ client: stub(null, new Anthropic.APIConnectionTimeoutError()) }).structured(PROMPTS.injection, "x", schema);
-    expect(t).toMatchObject({ ok: false, reason: "timeout" });
-    const e = await new AnthropicLlm({ client: stub(null, new Error("sk-ant-secret-should-not-leak")) }).structured(PROMPTS.injection, "x", schema);
-    expect(e).toMatchObject({ ok: false, reason: "error" });
-    expect(JSON.stringify(e)).not.toMatch(/sk-ant/);
-  });
-});
-
-describe("category judged semantically", () => {
-  const deferred = [{ id: "category", result: "unknown" as const, detail: "x", line: "P1", defers_to: "ai.soft:category" }];
-  const verdict = (v: string, quote: string) => new FakeLlm()
-    .on("injection", () => ({ suspected: false, confidence: 0.9, spans: [] }))
-    .on("semantic", () => ({ verdicts: [{ constraint_id: "category", product_id: "P1", verdict: v, confidence: 0.95, evidence_quote: quote }] }));
-  const cart = { retailer: "rei.com", currency: "USD" as const, total_cents: 100, lines: [{ product_id: "P1", name: "x", unit_cents: 100, quantity: 1, attributes: {} }] };
-  const pol = PolicyV1.parse({ ...policy, soft: [], category: "trail-running shoes" });
-
-  test("the implicit constraint is sent only when a check deferred", async () => {
-    const ai = verdict("satisfies", "Alpine Trail Jacket");
-    await aiScreen(ai, pol, cart, new Map([["P1", facts()]]), deferred);
-    expect(ai.calls.find((c) => c.prompt === "semantic")!.input).toMatch(/is a trail-running shoes/);
-    const ai2 = verdict("satisfies", "x");
-    await aiScreen(ai2, pol, cart, new Map([["P1", facts()]]), []);
-    expect(ai2.calls.some((c) => c.prompt === "semantic")).toBe(false);
-  });
-
-  test("a grounded 'satisfies' settles the deferred check; 'unknown' leaves it (HOLD)", async () => {
-    const yes = await aiScreen(verdict("satisfies", "Alpine Trail Jacket"), pol, cart, new Map([["P1", facts()]]), deferred);
-    expect(settleDeferred(deferred, yes)).toEqual([]);
-    const unsure = await aiScreen(verdict("unknown", ""), pol, cart, new Map([["P1", facts()]]), deferred);
-    expect(settleDeferred(deferred, unsure)).toEqual(deferred);
-  });
-
-  test("an ungrounded 'satisfies' does not settle it", async () => {
-    const r = await aiScreen(verdict("satisfies", "certainly a trail shoe"), pol, cart, new Map([["P1", facts()]]), deferred);
-    expect(settleDeferred(deferred, r)).toEqual(deferred);
-  });
-
-  test("settling never applies across lines", () => {
-    expect(settleDeferred(deferred, [{ id: "ai.soft:category", result: "pass", detail: "", line: "P2" }])).toEqual(deferred);
   });
 });

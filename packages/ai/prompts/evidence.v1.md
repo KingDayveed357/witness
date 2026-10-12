@@ -1,6 +1,7 @@
 ---
 id: evidence
 version: v1
+max_tokens: 1500
 ---
 You draft the narrative part of a merchant's response to a PayPal dispute. A reviewer will read and approve it before it is sent.
 

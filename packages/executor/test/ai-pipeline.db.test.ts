@@ -32,7 +32,7 @@ describe("AI in the pipeline", () => {
     await h.drain();
     expect(h.fake.count("POST", /\/capture$/)).toBe(0);
     const ai = await dbOf(h.pool).select().from(schema.checks).where(and(eq(schema.checks.purchaseId, p.id), eq(schema.checks.kind, "ai")));
-    expect(ai[0]).toMatchObject({ checkId: "ai.injection", result: "unknown", model: "fake", promptVersion: "injection@v1" });
+    expect(ai[0]).toMatchObject({ checkId: "ai.injection", result: "unknown", model: "fake", promptVersion: "injection@v2" });
   });
 
   test("no AI provider configured: everything holds (fail closed), nothing is captured", async () => {

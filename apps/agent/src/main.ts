@@ -26,6 +26,8 @@ if (missing.length) {
 const r = await runAgent({
   env: { witnessApi: process.env.WITNESS_API ?? "http://127.0.0.1:4000", agentKey: agentKey!, channel3Key: process.env.CHANNEL3_API_KEY },
   intentId: intentId!,
+  ...(process.env.WITNESS_AGENT_MAX_SPEND_USD ? { maxSpendUsd: Number(process.env.WITNESS_AGENT_MAX_SPEND_USD) } : {}),
   ...(instruction ? { instruction } : {}),
 });
 console.log(r.text);
+console.log(JSON.stringify({ turns: r.turns, usage: r.usage, estimated_cost_usd: r.estimated_cost_usd, stopped_for_budget: r.stopped_for_budget }));

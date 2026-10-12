@@ -5,11 +5,14 @@ import { catalogFromEnv } from "@witness/catalog";
 import { ApiConfig, loadDotEnv, parseConfig } from "@witness/config";
 import { createBoss, createPool, ensureQueues, migrate } from "@witness/db";
 import { PayPalClient } from "@witness/paypal";
-import { AnthropicLlm, UnavailableLlm } from "@witness/ai";
+import { AnthropicProvider, UnavailableProvider, UsageMeter, approvedModel } from "@witness/ai";
 import { buildApp } from "./app.ts";
 
 loadDotEnv();
 const cfg = parseConfig(ApiConfig);
+// Fail at startup on an unapproved model (only Haiku is allowed), never at the first purchase.
+approvedModel(cfg.WITNESS_AI_MODEL);
+const aiMeter = new UsageMeter({ maxCalls: cfg.WITNESS_AI_MAX_CALLS, maxSpendUsd: cfg.WITNESS_AI_MAX_SPEND_USD });
 const pool = createPool(cfg.DATABASE_URL);
 await migrate(pool);
 const boss = createBoss(cfg.DATABASE_URL, "api");
@@ -23,7 +26,9 @@ const app = buildApp({
     boss,
     paypal: new PayPalClient({ baseUrl: cfg.PAYPAL_BASE_URL, clientId: cfg.PAYPAL_CLIENT_ID, clientSecret: cfg.PAYPAL_CLIENT_SECRET, role: "api" }),
     catalog: catalogFromEnv(cfg),
-    ai: cfg.ANTHROPIC_API_KEY ? new AnthropicLlm({ apiKey: cfg.ANTHROPIC_API_KEY, model: cfg.WITNESS_AI_MODEL }) : new UnavailableLlm(),
+    ai: cfg.ANTHROPIC_API_KEY
+      ? new AnthropicProvider({ apiKey: cfg.ANTHROPIC_API_KEY, model: cfg.WITNESS_AI_MODEL, timeoutMs: cfg.WITNESS_AI_TIMEOUT_MS, maxRetries: cfg.WITNESS_AI_MAX_RETRIES, meter: aiMeter })
+      : new UnavailableProvider(),
     defaultRetailers: cfg.WITNESS_DEFAULT_RETAILERS.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   },
   webhookId: cfg.PAYPAL_WEBHOOK_ID,

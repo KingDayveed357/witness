@@ -1,13 +1,15 @@
-// Deterministic stand-in for tests and evals-of-the-runner. Responses are produced by a handler per
-// prompt id; failures can be injected to prove every caller fails closed.
+// Deterministic offline provider for tests and runner checks. Never makes network calls and never
+// costs anything. Responses come from a handler per prompt id; failures can be injected to prove
+// every caller fails closed.
 
 import type { z } from "zod";
-import { promptRef, type AiFailureReason, type AiResult, type LlmClient, type PromptDef } from "./llm.ts";
+import { promptRef, type AiFailureReason, type AiResult, type ModelProvider, type PromptDef } from "./llm.ts";
 
 export type FakeHandler = (input: string) => unknown;
 
-export class FakeLlm implements LlmClient {
-  readonly name = "fake";
+export class FakeProvider implements ModelProvider {
+  readonly provider = "fake";
+  readonly model = "fake";
   readonly calls: { prompt: string; input: string }[] = [];
   #handlers = new Map<string, FakeHandler>();
   #failNext: AiFailureReason | null = null;
@@ -28,7 +30,7 @@ export class FakeLlm implements LlmClient {
 
   async structured<S extends z.ZodType>(prompt: PromptDef, input: string, schema: S): Promise<AiResult<z.infer<S>>> {
     this.calls.push({ prompt: prompt.id, input });
-    const base = { model: "fake", promptVersion: promptRef(prompt), latencyMs: 0 };
+    const base = { provider: this.provider, model: this.model, promptVersion: promptRef(prompt), latencyMs: 0 };
     const injected = this.#failNext ?? this.#failAll;
     this.#failNext = null;
     if (injected) return { ok: false, reason: injected, detail: "injected failure", ...base };
@@ -39,3 +41,7 @@ export class FakeLlm implements LlmClient {
     return { ok: true, value: parsed.data, ...base };
   }
 }
+
+/** Back-compat alias. */
+export const FakeLlm = FakeProvider;
+export type FakeLlm = FakeProvider;

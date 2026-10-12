@@ -29,7 +29,13 @@ export const ApiConfig = Base.extend({
   WITNESS_DEMO_SHOPPER_ID: z.string().optional(),
   /** Without it every AI check fails closed, so purchases HOLD instead of capturing. */
   ANTHROPIC_API_KEY: z.string().optional(),
-  WITNESS_AI_MODEL: z.string().default("claude-opus-5-5"),
+  /** Must be an approved model (packages/ai/src/models.ts); validated at startup. */
+  WITNESS_AI_MODEL: z.string().default("claude-haiku-5-5"),
+  /** Per-process ceilings: when reached, AI checks fail closed (HOLD) instead of spending more. */
+  WITNESS_AI_MAX_SPEND_USD: z.coerce.number().positive().max(50).default(1),
+  WITNESS_AI_MAX_CALLS: z.coerce.number().int().positive().max(100_000).default(2000),
+  WITNESS_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
+  WITNESS_AI_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
   WITNESS_DEFAULT_RETAILERS: z.string().default("rei.com,backcountry.com"),
 });
 export type ApiConfig = z.infer<typeof ApiConfig>;

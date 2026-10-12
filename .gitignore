@@ -8,3 +8,5 @@ coverage/
 *.tsbuildinfo
 .witness/
 evals/report/fake-latest.*
+evals/report/smoke-latest.*
+evals/report/partial-latest.*
