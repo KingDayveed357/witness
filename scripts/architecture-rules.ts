@@ -27,6 +27,7 @@ export const RULES: Rule[] = [
   { name: "core-is-pure", from: /^packages\/core\//, to: /^@witness\/|^(pg|pg-boss|fastify|drizzle-orm)(\/|$)|^node:(net|http|https|dgram|child_process|fs)$/ },
   { name: "web-never-touches-paypal-or-db", from: /^apps\/web\//, to: /^@witness\/(paypal|db|executor)(\/|$)|^pg(\/|$)/ },
   { name: "ai-has-no-money-access", from: /^packages\/ai\//, to: /^@witness\/(paypal|db|executor|engine)(\/|$)|^(pg|pg-boss)(\/|$)/ },
+  { name: "agent-is-an-outsider", from: /^apps\/agent\//, to: /^@witness\/|^(pg|pg-boss)(\/|$)/ },
   { name: "api-has-no-job-consumers", from: /^apps\/api\//, to: /^@witness\/worker(\/|$)/ },
 ];
 

@@ -53,6 +53,11 @@ describe("architecture rules", () => {
     expect(probe("packages/ai/src/bad9.ts", `import { withTx } from "@witness/db";`)).toHaveLength(1);
   });
 
+  test("the reference agent can't import any Witness internals (HTTP only)", () => {
+    expect(probe("apps/agent/src/bad10.ts", `import { submitPurchase } from "@witness/engine";`).map((v) => v.rule)).toEqual(["agent-is-an-outsider"]);
+    expect(probe("apps/agent/src/bad11.ts", `import { PayPalClient } from "@witness/paypal";`).map((v) => v.rule)).toContain("agent-is-an-outsider");
+  });
+
   test("commented-out imports are ignored", () => {
     expect(importsOf(`// import x from "@witness/paypal/money-movement";\n/* import y from "@witness/executor" */\nimport z from "zod";`)).toEqual(["zod"]);
   });
