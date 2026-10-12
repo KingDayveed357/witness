@@ -1,6 +1,6 @@
 # 0012: Product category is judged semantically when it doesn't match literally
 
-Status: **Proposed** (implemented in Stage 4; for Dave's review at Checkpoint 4)
+Status: **Accepted with safeguards** (Dave, Checkpoint 4, 2026-10-12; conditions at the end)
 
 ## Context
 
@@ -14,7 +14,7 @@ Category is a judgement about what a product *is*. It isn't a money field.
 2. Drop the category check. Unsafe: the agent could buy a sandal.
 3. **Literal match passes deterministically. A non-literal category becomes an "unknown" check that defers to the semantic verifier** ("is this a trail-running shoe?"), under the same fail-closed rules as every AI check.
 
-## Decision (proposed)
+## Decision
 
 Option 3.
 - **Grounded `violates`** with confidence ≥ 0.8, and the quote found in the listing → **REJECT** before PayPal.
@@ -29,3 +29,24 @@ The same applies to same-category substitutes. Amount, currency, retailer, payee
 - A fooled or failing model can at most cause a HOLD or a REJECT. It can't loosen a money rule.
 - Deferred checks are written to the database only once settled, so stored checks always match the decision (a bug the pipeline test caught during implementation).
 - Eval suite 1 measures this directly: clean-03/04, sem-09/10, sub-04/05.
+
+## Acceptance conditions (Dave, 2026-10-12)
+
+1. A literal category match stays deterministic.
+2. A non-literal match passes only on a semantic verdict that is supported by verifiable listing evidence (the quoted text must appear in the listing) and meets the 0.8 confidence threshold.
+3. Violations REJECT. Uncertainty, missing evidence, model failure or an injection concern HOLD.
+4. Money, currency, payee, quantity, SKU, size, retailer and other exact purchase constraints stay deterministic.
+5. The AI never overrides a deterministic failure.
+
+Each condition is covered by a test in `packages/ai/test/adr-0012.test.ts`:
+- grounded, confident pass and violation;
+- ungrounded, empty-quote, below-threshold and "unknown" verdicts hold;
+- model failure holds;
+- an injection concern holds even with a grounded pass;
+- a literal match never consults the model about category;
+- deterministic size, colour, budget and currency failures reject before any model call;
+- `settleDeferred` removes only a deferred "unknown" on the same line, never a failure.
+
+**Known limit (adversarial suite adv-v1, case adv-cat-01).** Condition 1 trusts the merchant's category field. A listing that literally claims the category but describes a different product (a road flat filed under "Trail-running shoes") is captured. Closing this means also asking the model on literal matches, where it could only make the decision stricter. That is a separate decision; see the Checkpoint 4 report.
+
+**Residual risk.** A grounding quote can be very short (one word that appears in the listing). Accepted for now.

@@ -1,6 +1,6 @@
 # 0013: Foundations for Bring-Your-Own-Model (BYOM) and Bring-Your-Own-Key (BYOK)
 
-Status: **Proposed** (foundation implemented in Stage 4; full feature is future work) · 2026-10-12
+Status: **Accepted as architectural direction only** (Dave, Checkpoint 4, 2026-10-12). The full BYOM/BYOK feature is **not** part of Stage 5.
 
 ## Context
 
@@ -42,3 +42,16 @@ They can be combined (a tenant brings a key for an allowlisted provider), but ea
 
 - Adding a provider later means writing one class that implements `ModelProvider`, adding its models to the allowlist with pricing, and passing the evals. The engine doesn't change.
 - Witness does not claim BYOK support until key custody, encryption, rotation and per-tenant isolation are built and tested.
+
+## Acceptance (Dave, 2026-10-12)
+
+**Accepted:** the provider abstraction and the future BYOM/BYOK direction.
+
+**Not in Stage 5:** the full feature.
+
+**Until a later decision:**
+- Anthropic `claude-haiku-5-5` remains the only approved real model.
+- `FakeProvider` remains for offline tests.
+- The allowlist, cost ceilings, fail-closed behaviour and separation from the payment executor stay as they are.
+
+**Not implemented:** tenant-specific configuration, key custody, encryption at rest, rotation, revocation, per-tenant quotas and tenant isolation. Witness must not be described as supporting BYOK or BYOM.

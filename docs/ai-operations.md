@@ -49,7 +49,14 @@ LIVE: 18 representative cases × 1 run. Prints the plan and worst-case cost, the
 ```bash
 pnpm eval
 ```
-LIVE: the full 72 cases × 3 runs. It refuses to start if the worst case exceeds `--max-spend` (default $1.00). Only this run writes `evals/report/latest.*`.
+LIVE: the full benchmark (suite1-v2, 76 cases × 3 runs, 276 calls). It refuses to start if the worst case exceeds `--max-spend` (default $1.00). Only this run writes `evals/report/latest.*`.
+
+```bash
+pnpm eval -- --suite adversarial
+```
+LIVE: the separate adversarial suite (adv-v1, 19 cases × 3 runs). It writes `evals/report/adversarial-latest.*` and is never merged into the benchmark's numbers.
+
+Every report re-derives its headline numbers from the per-case, per-run table before writing, and aborts if they disagree.
 
 Every run dry-runs the selected cases through the fake model first, to count exactly how many model calls it will make, and prints a conservative worst case (input billed at the cache-write rate, every output token used, every retry taken).
 
@@ -61,7 +68,8 @@ The static system prompt (security rules, rubric, worked examples) carries a `ca
 
 **Measured (2026-10-12):**
 - Smoke pair: a cache-write call cost an estimated $0.000211, and the following cache-hit call $0.000036 (**83% less**). Latency fell from 2.7 s to 1.2 s.
-- Full evaluation: all 252 requests read the cache (369,588 cache-read tokens, against 32,979 uncached input tokens).
+- Full evaluation, suite1-v1: all 252 requests read the cache (369,588 cache-read tokens, against 32,979 uncached input tokens).
+- Full evaluation, suite1-v2: 270 of 276 requests read the cache; 6 wrote it (395,508 cache-read tokens), $0.0155.
 
 Cache entries last 5 minutes. Sparse production traffic will mostly pay the write rate; caching helps most in bursts.
 
@@ -73,6 +81,15 @@ Cache entries last 5 minutes. Sparse production traffic will mostly pay the writ
 
 ## Known limitations
 
-- **The eval set is self-authored.** The same engineer wrote the prompts and the 72 cases (the prompt examples were deliberately made different from the cases). A perfect score shows the system works as designed on this set; it is not evidence against unseen attacks. Independent adversarial cases and the planned "try to beat it" page are the next test.
+- **The eval set is self-authored.** The same team wrote the prompts and the 76 benchmark cases (the prompt examples were deliberately made different from the cases). A perfect score shows the system works as designed on this set; it is not evidence against unseen attacks.
+- **The adversarial suite adv-v1 found real gaps: 10 of 17 adversarial carts were captured on every run** (`evals/report/adversarial-latest.md`). The AI is asked only about injection and about the shopper's explicit soft constraints, and the deterministic checks trust merchant-supplied fields. So nothing catches contradicting listing facts:
+  - fees or subscriptions;
+  - kids' sizing or size substitution;
+  - single items or multi-packs;
+  - replicas with the brand field set;
+  - colour synonyms;
+  - a category field that lies.
+
+  Injection in listing fields was caught in all 4 cases. Remediation needs a decision (see the Checkpoint 4 report).
 - **Real catalog data is often thin.** In the live agent run, Channel3 had no size for a real Nike shoe, so Witness correctly held it. Expect a meaningful HOLD rate on real listings until sizes and colours are resolved from variants.
 - **Costs are local estimates.** Anthropic's bill is authoritative; reconcile in the Console. The remaining balance can't be read with a standard API key (usage and cost reports need an Admin API key).
