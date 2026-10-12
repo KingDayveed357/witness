@@ -8,26 +8,27 @@
 # prices in the dashboard before creating.
 #
 # Build uses an exact pnpm via npx (no reliance on corepack or a preinstalled pnpm); start and
-# migrate call each app’s local tsx, so pnpm is not needed at runtime.
+# migrate call each app’s local tsx, so pnpm is not needed at runtime. Each service installs only its
+# own workspace dependencies (--filter), so the API and worker never install the web UI packages.
+#
+# witness-web (Stage 5) holds the role API keys server-side and proxies to the API over Render's
+# private network; no key or PayPal credential reaches the browser. It has no PayPal credentials.
 
 services:
   - type: web
     name: witness-api
     runtime: node
     region: oregon
-    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile
+    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile --filter "@witness/api..."
     preDeployCommand: cd apps/api && ./node_modules/.bin/tsx ../../packages/db/src/migrate-cli.ts
     startCommand: cd apps/api && ./node_modules/.bin/tsx src/main.ts
     healthCheckPath: /healthz
     envVars:
-      - key: NODE_VERSION
-        value: "24"
+      - fromGroup: witness-shared
       - key: DATABASE_URL
         fromDatabase:
           name: witness-db
           property: connectionString
-      - key: PAYPAL_BASE_URL
-        value: https://api-m.sandbox.paypal.com
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
@@ -40,30 +41,67 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: LOG_LEVEL
-        value: info
 
   - type: worker
     name: witness-worker
     runtime: node
     region: oregon
-    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile
+    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile --filter "@witness/worker..."
     startCommand: cd apps/worker && ./node_modules/.bin/tsx src/main.ts
     envVars:
-      - key: NODE_VERSION
-        value: "24"
+      - fromGroup: witness-shared
       - key: DATABASE_URL
         fromDatabase:
           name: witness-db
           property: connectionString
-      - key: PAYPAL_BASE_URL
-        value: https://api-m.sandbox.paypal.com
       - key: PAYPAL_CLIENT_ID
         sync: false
       - key: PAYPAL_CLIENT_SECRET
         sync: false
       - key: CHANNEL3_API_KEY
         sync: false
+
+  - type: web
+    name: witness-web
+    runtime: node
+    region: oregon
+    buildCommand: npx -y pnpm@10.33.0 install --frozen-lockfile --filter "@witness/web..." && cd apps/web && ./node_modules/.bin/next build
+    startCommand: cd apps/web && ./node_modules/.bin/next start -p $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - fromGroup: witness-shared
+      - key: WITNESS_API_URL
+        fromService:
+          type: web
+          name: witness-api
+          property: hostport
+      # Role keys from `pnpm db:seed` (ops, demo, shopper). Server-side only.
+      - key: WITNESS_OPS_KEY
+        sync: false
+      - key: WITNESS_DEMO_KEY
+        sync: false
+      - key: WITNESS_SHOPPER_KEY
+        sync: false
+      # Console sign-in password and cookie signing secret.
+      - key: WITNESS_CONSOLE_PASSWORD
+        sync: false
+      - key: WITNESS_SESSION_SECRET
+        generateValue: true
+      - key: AG_STUDIO_LICENSE_KEY
+        sync: false
+      # Studio agent (Haiku) proxy; capped separately in the web app.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: WITNESS_STUDIO_AI_MAX_SPEND_USD
+        value: "0.50"
+
+envVarGroups:
+  - name: witness-shared
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
       - key: LOG_LEVEL
         value: info
 

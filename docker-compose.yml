@@ -1,0 +1,75 @@
+# Local stack: Postgres + Witness api, worker and web, against the PayPal SANDBOX.
+#   1. cp .env.example .env and fill the PayPal sandbox values (and ANTHROPIC_API_KEY, optional)
+#   2. docker compose run --rm seed     -> writes .witness/dev-keys.json, prints the demo shopper id
+#   3. put WITNESS_DEMO_SHOPPER_ID and the ops/demo/shopper keys into .env (see README)
+#   4. docker compose up                -> web on http://localhost:3000, API on http://localhost:4000
+# The database password below is local-only.
+
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://witness:witness-local-only@db:5432/witness
+    PAYPAL_BASE_URL: https://api-m.sandbox.paypal.com
+    HOST: 0.0.0.0
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: witness
+      POSTGRES_PASSWORD: witness-local-only
+      POSTGRES_DB: witness
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U witness -d witness"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    <<: *app
+    working_dir: /app/apps/api
+    command: ["./node_modules/.bin/tsx", "../../packages/db/src/migrate-cli.ts"]
+    restart: "no"
+
+  seed:
+    <<: *app
+    profiles: [tools]
+    command: ["./node_modules/.bin/tsx", "scripts/seed.ts"]
+    volumes: ["./.witness:/app/.witness"]
+    restart: "no"
+
+  api:
+    <<: *app
+    working_dir: /app/apps/api
+    command: ["./node_modules/.bin/tsx", "src/main.ts"]
+    ports: ["4000:4000"]
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  worker:
+    <<: *app
+    working_dir: /app/apps/worker
+    command: ["./node_modules/.bin/tsx", "src/main.ts"]
+    depends_on:
+      db: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  web:
+    <<: *app
+    working_dir: /app/apps/web
+    command: ["./node_modules/.bin/next", "start", "-p", "3000"]
+    environment:
+      WITNESS_API_URL: http://api:4000
+    ports: ["3000:3000"]
+    depends_on:
+      api: { condition: service_started }
+
+volumes:
+  pgdata:

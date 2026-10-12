@@ -1,0 +1,10 @@
+**/node_modules
+**/.next
+.git
+.env
+.env.*
+!.env.example
+.witness
+.pgdata
+spikes/out
+evals/report/*-latest.*
