@@ -16,6 +16,7 @@ import {
   runScenario,
   SCENARIOS,
   compileAndCreateIntent,
+  draftDisputeEvidence,
   getHold,
   issueHoldLink,
   resolveHold,
@@ -204,6 +205,13 @@ export function buildApp(o: AppOptions): FastifyInstance {
     const i = await getIntent(d, req.principal!.tenantId, req.params.id);
     if (!i || i.status !== "CONFIRMED") return problem(reply, 404, "No confirmed intent with that id");
     return { id: i.id, status: i.status, source_text: i.sourceText, policy: i.policy };
+  });
+
+  /** Draft dispute evidence for review. Never sent to PayPal from here. */
+  app.post<{ Params: { id: string } }>("/v1/purchases/:id/dispute-evidence/draft", { preHandler: auth("ops", "admin") }, async (req, reply) => {
+    const r = await draftDisputeEvidence(d, req.principal!.tenantId, req.params.id);
+    if (r.kind === "error") return problem(reply, r.status, r.title);
+    return r;
   });
 
   // ---- holds (shopper decides on a held purchase; funds stay authorized meanwhile) ----------

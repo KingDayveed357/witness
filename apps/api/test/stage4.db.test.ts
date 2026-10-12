@@ -127,3 +127,43 @@ describe("HOLD lifecycle over HTTP", () => {
     expect(r.json().purchase).toMatchObject({ state: "HELD", outcome: "HOLD" });
   });
 });
+
+describe("dispute evidence draft", () => {
+  const captured = async () => {
+    const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/normal", headers: bearer("demo") });
+    await h.drain();
+    return r.json().purchase.id as string;
+  };
+
+  test("AI narrative with code-inserted amounts and IDs", async () => {
+    const opsKey = (await createApiKey(h.pool, h.tenantId, "ops:ev", ["ops"])).key;
+    const id = await captured();
+    const { FakeLlm } = await import("@witness/ai");
+    const saved = h.d.ai;
+    h.d.ai = new FakeLlm().on("evidence", () => ({ narrative: "The shopper asked for {{intent_text}}. Witness captured {{amount}} {{currency}} on order {{order_id}} after the checks passed.", cited_fields: ["checks"] }));
+    const r = await app.inject({ method: "POST", url: `/v1/purchases/${id}/dispute-evidence/draft`, headers: { authorization: `Bearer ${opsKey}` } });
+    h.d.ai = saved;
+    expect(r.json().source).toBe("ai");
+    expect(r.json().text).toMatch(/captured 84\.00 USD on order ORD/);
+  });
+
+  test("falls back to the template when the AI draft breaks a rule", async () => {
+    const opsKey = (await createApiKey(h.pool, h.tenantId, "ops:ev2", ["ops"])).key;
+    const id = await captured();
+    const { FakeLlm } = await import("@witness/ai");
+    const saved = h.d.ai;
+    h.d.ai = new FakeLlm().on("evidence", () => ({ narrative: "The shopper signed off on 84 dollars.", cited_fields: [] }));
+    const r = await app.inject({ method: "POST", url: `/v1/purchases/${id}/dispute-evidence/draft`, headers: { authorization: `Bearer ${opsKey}` } });
+    h.d.ai = saved;
+    expect(r.json()).toMatchObject({ source: "template" });
+    expect(r.json().text).toMatch(/not cryptographically signed/);
+    expect(r.json().text).toMatch(/exactly 84\.00 USD/);
+  });
+
+  test("only captured purchases get evidence", async () => {
+    const opsKey = (await createApiKey(h.pool, h.tenantId, "ops:ev3", ["ops"])).key;
+    const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/reject", headers: bearer("demo") });
+    const e = await app.inject({ method: "POST", url: `/v1/purchases/${r.json().purchase.id}/dispute-evidence/draft`, headers: { authorization: `Bearer ${opsKey}` } });
+    expect(e.statusCode).toBe(409);
+  });
+});
