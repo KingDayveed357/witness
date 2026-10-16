@@ -1,0 +1,1454 @@
+{
+  "tag": "v1",
+  "prompt": "manipulation@v1",
+  "model": "claude-haiku-5-5",
+  "split": "all",
+  "generated_at": "2026-10-16T19:46:26.922Z",
+  "duration_s": 51,
+  "definition": "flagged = intervention is not PROCEED (HOLD_FOR_TRUSTED_CONTACT or VERIFY_BEFORE_PAYING). Strict = HOLD_FOR_TRUSTED_CONTACT only.",
+  "metrics": {
+    "n": 60,
+    "tp": 36,
+    "fn": 0,
+    "fp": 0,
+    "tn": 24,
+    "recall": 1,
+    "recall_ci95": [
+      0.9035781695514236,
+      1
+    ],
+    "fpr": 0,
+    "fpr_ci95": [
+      0,
+      0.13798057582897535
+    ],
+    "precision": 1,
+    "strict_hold_recall": 1,
+    "strict_hold_fpr": 0,
+    "tactic_recall": 0.896,
+    "key_quote_recall": 0.9545454545454546,
+    "quote_grounding_rate": 1,
+    "grounded": 141,
+    "ungrounded": 0,
+    "speaker_attribution": 1,
+    "failures": []
+  },
+  "by_split": {
+    "dev": {
+      "n": 36,
+      "tp": 22,
+      "fn": 0,
+      "fp": 0,
+      "tn": 14,
+      "recall": 1,
+      "recall_ci95": [
+        0.8513404742740388,
+        1
+      ],
+      "fpr": 0,
+      "fpr_ci95": [
+        0,
+        0.21531701192718142
+      ],
+      "precision": 1,
+      "strict_hold_recall": 1,
+      "strict_hold_fpr": 0,
+      "tactic_recall": 0.8933333333333333,
+      "key_quote_recall": 0.9464285714285714,
+      "quote_grounding_rate": 1,
+      "grounded": 88,
+      "ungrounded": 0,
+      "speaker_attribution": 1,
+      "failures": []
+    },
+    "holdout": {
+      "n": 24,
+      "tp": 14,
+      "fn": 0,
+      "fp": 0,
+      "tn": 10,
+      "recall": 1,
+      "recall_ci95": [
+        0.7846829880728186,
+        1
+      ],
+      "fpr": 0,
+      "fpr_ci95": [
+        0,
+        0.2775401687666166
+      ],
+      "precision": 1,
+      "strict_hold_recall": 1,
+      "strict_hold_fpr": 0,
+      "tactic_recall": 0.9,
+      "key_quote_recall": 0.96875,
+      "quote_grounding_rate": 1,
+      "grounded": 53,
+      "ungrounded": 0,
+      "speaker_attribution": 1,
+      "failures": []
+    }
+  },
+  "by_category": [
+    {
+      "category": "family_emergency",
+      "label": "scam",
+      "n": 6,
+      "flagged": 6,
+      "hold": 6
+    },
+    {
+      "category": "tech_support",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "romance",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "government",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "safe_account",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "investment",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "payment_channel",
+      "label": "scam",
+      "n": 5,
+      "flagged": 5,
+      "hold": 5
+    },
+    {
+      "category": "benign_family_emergency",
+      "label": "benign",
+      "n": 3,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_invoice",
+      "label": "benign",
+      "n": 3,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_rent",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_friends",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_bank_alert",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_grandchild",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_adviser",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_scam_talk",
+      "label": "benign",
+      "n": 2,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_crypto",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_school",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_contractor",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_textbooks",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_charity",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "benign_marketplace",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    }
+  ],
+  "latency_ms": {
+    "p50": 2394,
+    "p95": 6116
+  },
+  "cost": {
+    "pricing_version": "anthropic-2026-10-06",
+    "requests": 60,
+    "attempts_including_retries": 60,
+    "failed": 0,
+    "retries": 0,
+    "tokens": {
+      "input": 10964,
+      "output": 18509,
+      "cache_write": 5598,
+      "cache_read": 106362
+    },
+    "cache": {
+      "hits": 57,
+      "writes": 3,
+      "none": 0
+    },
+    "estimated_cost_usd": 0.012114,
+    "latency_ms": {
+      "p50": 2394,
+      "p95": 6113
+    },
+    "limits": {
+      "maxCalls": 200,
+      "maxSpendUsd": 0.25
+    },
+    "note": "Usage is measured from API responses; cost is a local estimate from models.ts pricing, not Anthropic's bill."
+  },
+  "cases": [
+    {
+      "id": "fam-01",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "impersonation: \"Grandma? It's me, Danny.\" (Caller)",
+        "impersonation: \"My nose is broken, that's why.\" (Caller)",
+        "authority_pressure: \"I got arrested after a car accident.\" (Caller)",
+        "urgency: \"I need $1,800 for bail right now\" (Caller)",
+        "threat: \"or they keep me overnight.\" (Caller)",
+        "secrecy: \"please don't tell Mom, she'll kill me.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "secrecy",
+        "emotional_manipulation"
+      ],
+      "failure": null,
+      "ms": 6221
+    },
+    {
+      "id": "fam-02",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "impersonation: \"Hi Dad, this is my new number, my phone fell in the sink. Save this one.\" (Unknown number)",
+        "urgency: \"It has to go before 3pm.\" (Unknown number)",
+        "unusual_payment_channel: \"Can you send £940 to this account and I'll pay you back tomorrow?\" (Unknown number)",
+        "emotional_manipulation: \"Not really, I have to pay a supplier invoice today and my banking app is locked on the new phone.\" (Unknown number)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 6116
+    },
+    {
+      "id": "fam-03",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "impersonation: \"I'm Officer Grant. Your son was in an accident\" (Caller)",
+        "urgency: \"it must be paid today\" (Caller)",
+        "secrecy: \"you cannot discuss it with anyone, even family\" (Caller)",
+        "authority_pressure: \"There is a gag order on the case\" (Caller)",
+        "unusual_payment_channel: \"A courier can collect the cash from your house within the hour\" (Caller)",
+        "emotional_manipulation: \"Your son was in an accident and he's being held\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "authority_pressure",
+        "urgency",
+        "secrecy",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 6148
+    },
+    {
+      "id": "fam-04",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "threat: \"If you call the police she gets hurt.\" (Second voice)",
+        "urgency: \"Send $3,000 by wire in the next 30 minutes\" (Second voice)",
+        "secrecy: \"stay on the line the whole time\" (Second voice)",
+        "unusual_payment_channel: \"Send $3,000 by wire\" (Second voice)",
+        "impersonation: \"Mom! Mom, help me—\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "threat",
+        "urgency",
+        "secrecy",
+        "emotional_manipulation"
+      ],
+      "failure": null,
+      "ms": 3454
+    },
+    {
+      "id": "fam-05",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "impersonation: \"Grandpa it's Emma, I'm in Lisbon and my bag got stolen\" (Granddaughter?)",
+        "unusual_payment_channel: \"buy $500 of Apple gift cards and send me the codes\" (Granddaughter?)",
+        "urgency: \"The hostel will throw me out tonight.\" (Granddaughter?)",
+        "secrecy: \"Please keep it between us, I don't want Mum to panic.\" (Granddaughter?)",
+        "emotional_manipulation: \"The hostel will throw me out tonight.\" (Granddaughter?)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "unusual_payment_channel",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 3712
+    },
+    {
+      "id": "fam-06",
+      "category": "family_emergency",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "urgency: \"We need a $2,400 deposit before the surgeon can start.\" (Caller)",
+        "unusual_payment_channel: \"I can take it by PayPal Friends and Family right now.\" (Caller)",
+        "secrecy: \"Every minute matters, please don't hang up to call anyone.\" (Caller)",
+        "impersonation: \"Mrs. Park, your husband was brought in after a fall.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "unusual_payment_channel",
+        "emotional_manipulation"
+      ],
+      "failure": null,
+      "ms": 2527
+    },
+    {
+      "id": "tech-01",
+      "category": "tech_support",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.98,
+      "tactics": [
+        "impersonation: \"This is Microsoft Windows Defender support. Your computer has been infected with a banking trojan.\" (Agent)",
+        "urgency: \"Please install AnyDesk so I can remove it before the hackers empty your accounts.\" (Agent)",
+        "remote_access: \"Please install AnyDesk so I can remove it before the hackers empty your accounts.\" (Agent)",
+        "unusual_payment_channel: \"We accept Google Play cards because they are untraceable for the hackers.\" (Agent)",
+        "too_good_to_be_true: \"The security license costs $399.\" (Agent)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "remote_access",
+        "threat",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 4163
+    },
+    {
+      "id": "tech-02",
+      "category": "tech_support",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "remote_access: \"Please log in to your bank so I can process it through our secure tool.\" (Agent)",
+        "too_good_to_be_true: \"You've been refunded too much.\" (Agent)",
+        "unusual_payment_channel: \"send back the $1,800 difference in Target gift cards today\" (Agent)",
+        "urgency: \"send back the $1,800 difference in Target gift cards today\" (Agent)",
+        "emotional_manipulation: \"I could lose my job.\" (Agent)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "remote_access",
+        "emotional_manipulation",
+        "unusual_payment_channel",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 3344
+    },
+    {
+      "id": "tech-03",
+      "category": "tech_support",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "remote_access: \"I need to connect to your computer and verify your bank account.\" (Agent)",
+        "secrecy: \"You must stay on the phone and not tell your bank, or the cancellation will fail.\" (Agent)",
+        "urgency: \"will be charged today. Call to cancel.\" (Email)",
+        "impersonation: \"Geek Patrol Total Protection auto-renewal: $449.99 will be charged today.\" (Email)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "remote_access",
+        "secrecy",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 3077
+    },
+    {
+      "id": "tech-04",
+      "category": "tech_support",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "impersonation: \"Apple Support: Your Apple ID has been locked due to suspicious purchases.\" (Text)",
+        "urgency: \"Call 1-800-555-0144 within 2 hours to avoid permanent deletion.\" (Text)",
+        "threat: \"to avoid permanent deletion\" (Text)",
+        "remote_access: \"I need the verification code we just sent you\" (Agent)",
+        "unusual_payment_channel: \"a payment of $150 in Bitcoin to reinstate the account\" (Agent)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "threat",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2877
+    },
+    {
+      "id": "tech-05",
+      "category": "tech_support",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "remote_access: \"I'll guide you to install our TeamViewer security patch.\" (Caller)",
+        "impersonation: \"We detected malware on your online banking.\" (Caller)",
+        "secrecy: \"don't use your phone or call the branch, it will corrupt the fix.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "remote_access",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 2259
+    },
+    {
+      "id": "rom-01",
+      "category": "romance",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "emotional_manipulation: \"My love, I'm finally coming home from the base in Syria.\" (Mark)",
+        "too_good_to_be_true: \"Customs is holding my gold bars and needs a $2,800 release fee.\" (Mark)",
+        "secrecy: \"Don't tell your sister about us yet, she won't understand.\" (Mark)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "emotional_manipulation",
+        "secrecy",
+        "too_good_to_be_true"
+      ],
+      "failure": null,
+      "ms": 2396
+    },
+    {
+      "id": "rom-02",
+      "category": "romance",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "emotional_manipulation: \"I'll repay you double when I'm back next month.\" (James)",
+        "unusual_payment_channel: \"Please send $1,200 through Western Union to my agent.\" (James)",
+        "urgency: \"Hurry, the boat leaves tonight.\" (James)",
+        "too_good_to_be_true: \"I'll repay you double when I'm back next month.\" (James)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "emotional_manipulation",
+        "urgency",
+        "unusual_payment_channel",
+        "too_good_to_be_true"
+      ],
+      "failure": null,
+      "ms": 3458
+    },
+    {
+      "id": "rom-03",
+      "category": "romance",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "too_good_to_be_true: \"My uncle's trading platform made me 40% this month.\" (Lina)",
+        "too_good_to_be_true: \"Withdrawals need a 15% unlock tax first, that's normal for big profits.\" (Lina)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "emotional_manipulation",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2460
+    },
+    {
+      "id": "rom-04",
+      "category": "romance",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "unusual_payment_channel: \"Please send $900 by PayPal Friends and Family, there are no fees that way.\" (Ben)",
+        "urgency: \"Sophie needs medicine the clinic won't release without payment\" (Ben)",
+        "emotional_manipulation: \"I'm begging you, you're all I have.\" (Ben)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "emotional_manipulation",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2455
+    },
+    {
+      "id": "rom-05",
+      "category": "romance",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "emotional_manipulation: \"Our dream is so close!\" (Elena)",
+        "safe_account: \"Send it to my cousin's account and I'll return it the moment I land.\" (Elena)",
+        "too_good_to_be_true: \"I'll return it the moment I land.\" (Elena)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "emotional_manipulation",
+        "too_good_to_be_true"
+      ],
+      "failure": null,
+      "ms": 3140
+    },
+    {
+      "id": "gov-01",
+      "category": "government",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.98,
+      "tactics": [
+        "impersonation: \"This is Agent Collins, IRS criminal division.\" (Caller)",
+        "authority_pressure: \"a warrant has been issued for your arrest.\" (Caller)",
+        "urgency: \"Officers will arrive in two hours unless you settle now\" (Caller)",
+        "unusual_payment_channel: \"settle now with prepaid Visa cards.\" (Caller)",
+        "threat: \"Officers will arrive in two hours unless you settle now\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "authority_pressure",
+        "threat",
+        "urgency",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2652
+    },
+    {
+      "id": "gov-02",
+      "category": "government",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.98,
+      "tactics": [
+        "impersonation: \"Your Social Security number has been suspended due to suspicious activity in Texas.\" (Recording)",
+        "threat: \"To protect your benefits, withdraw your savings and buy Bitcoin at the ATM at the gas station.\" (Officer)",
+        "unusual_payment_channel: \"buy Bitcoin at the ATM at the gas station\" (Officer)",
+        "safe_account: \"To protect your benefits, withdraw your savings\" (Officer)",
+        "secrecy: \"I'll stay on the line.\" (Officer)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "threat",
+        "unusual_payment_channel",
+        "safe_account"
+      ],
+      "failure": null,
+      "ms": 2633
+    },
+    {
+      "id": "gov-03",
+      "category": "government",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "authority_pressure: \"Sheriff's office. You missed federal jury duty and there's a $1,500 fine.\" (Caller)",
+        "unusual_payment_channel: \"Pay with gift cards within the hour to avoid being booked.\" (Caller)",
+        "urgency: \"Pay with gift cards within the hour to avoid being booked.\" (Caller)",
+        "threat: \"Pay with gift cards within the hour to avoid being booked.\" (Caller)",
+        "secrecy: \"Do not hang up and do not discuss this, it's a sealed matter.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "authority_pressure",
+        "threat",
+        "urgency",
+        "secrecy",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 3068
+    },
+    {
+      "id": "gov-04",
+      "category": "government",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "urgency: \"Pay the $2.99 redelivery fee within 24h\" (Text)",
+        "threat: \"or it will be returned\" (Text)",
+        "impersonation: \"National Post: your parcel is held at customs.\" (Text)",
+        "too_good_to_be_true: \"Pay the $2.99 redelivery fee within 24h at natpost-delivery-help.com\" (Text)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 2885
+    },
+    {
+      "id": "gov-05",
+      "category": "government",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "authority_pressure: \"Immigration services. There's an error in your visa file and you face deportation unless you pay a $2,000 correction fee today.\" (Caller)",
+        "threat: \"you face deportation unless you pay a $2,000 correction fee today\" (Caller)",
+        "urgency: \"unless you pay a $2,000 correction fee today\" (Caller)",
+        "unusual_payment_channel: \"Pay by cryptocurrency so it's processed instantly.\" (Caller)",
+        "secrecy: \"Don't contact a lawyer, that will delay your case.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "threat",
+        "urgency",
+        "unusual_payment_channel",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 2772
+    },
+    {
+      "id": "safe-01",
+      "category": "safe_account",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "impersonation: \"This is the fraud team at Northstar Bank.\" (Caller)",
+        "safe_account: \"Move your $18,000 to a new safe account we've opened for you.\" (Caller)",
+        "secrecy: \"Don't tell the branch, they may be part of it.\" (Caller)",
+        "urgency: \"A criminal has access to your account and staff at your branch are involved.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account",
+        "secrecy",
+        "threat"
+      ],
+      "failure": null,
+      "ms": 2199
+    },
+    {
+      "id": "safe-02",
+      "category": "safe_account",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "impersonation: \"I'm with the Federal Trade Commission. Your identity was used in a fraud ring\" (Caller)",
+        "threat: \"so your bank accounts will be frozen tomorrow\" (Caller)",
+        "safe_account: \"Withdraw the money in cash and hand it to our agent for safekeeping.\" (Caller)",
+        "urgency: \"so your bank accounts will be frozen tomorrow\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account",
+        "authority_pressure",
+        "threat",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2394
+    },
+    {
+      "id": "safe-03",
+      "category": "safe_account",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "impersonation: \"Amazon security here. Someone ordered a $1,299 iPhone with your account\" (Caller)",
+        "safe_account: \"transfer them to the protected account I'll give you\" (Caller)",
+        "urgency: \"To secure your funds, transfer them to the protected account\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account",
+        "threat"
+      ],
+      "failure": null,
+      "ms": 2371
+    },
+    {
+      "id": "safe-04",
+      "category": "safe_account",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "authority_pressure: \"Your accounts have been flagged for money laundering.\" (Caller)",
+        "safe_account: \"move everything into this verified government wallet\" (Caller)",
+        "secrecy: \"If you tell anyone, the investigation is compromised\" (Caller)",
+        "threat: \"you'll be charged\" (Caller)",
+        "impersonation: \"this verified government wallet\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account",
+        "threat",
+        "secrecy",
+        "authority_pressure"
+      ],
+      "failure": null,
+      "ms": 2447
+    },
+    {
+      "id": "safe-05",
+      "category": "safe_account",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "safe_account: \"I need you to send the same amount to the holding account I'll read out\" (Caller)",
+        "impersonation: \"Thanks for replying NO. To stop it, I need you to send\" (Caller)",
+        "too_good_to_be_true: \"it bounces back in an hour\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account"
+      ],
+      "failure": null,
+      "ms": 4699
+    },
+    {
+      "id": "inv-01",
+      "category": "investment",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "too_good_to_be_true: \"Our AI trading bot returns 3% daily, guaranteed.\" (Mentor)",
+        "urgency: \"Only 5 spots left in the VIP tier, deposit $10,000 in USDT today to lock your place.\" (Mentor)",
+        "unusual_payment_channel: \"deposit $10,000 in USDT today to lock your place.\" (Mentor)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "urgency",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2099
+    },
+    {
+      "id": "inv-02",
+      "category": "investment",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "too_good_to_be_true: \"Returns of 500% are expected.\" (Broker)",
+        "secrecy: \"please don't mention it to your financial adviser\" (Broker)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 2292
+    },
+    {
+      "id": "inv-03",
+      "category": "investment",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "too_good_to_be_true: \"We traced your stolen $22,000 and can return it.\" (Recovery agent)",
+        "unusual_payment_channel: \"You only need to pay a $1,950 release fee upfront in Bitcoin to the court escrow.\" (Recovery agent)",
+        "safe_account: \"to the court escrow\" (Recovery agent)",
+        "impersonation: \"We're a licensed recovery firm.\" (Recovery agent)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "too_good_to_be_true",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2640
+    },
+    {
+      "id": "inv-04",
+      "category": "investment",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "urgency: \"Buy now before the pump, it's risk-free.\" (Admin)",
+        "too_good_to_be_true: \"is about to 50x after the exchange listing tomorrow\" (Admin)",
+        "too_good_to_be_true: \"it's risk-free.\" (Admin)",
+        "unusual_payment_channel: \"Send ETH to this wallet and we'll airdrop your tokens.\" (Admin)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "urgency",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2482
+    },
+    {
+      "id": "inv-05",
+      "category": "investment",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "too_good_to_be_true: \"I turn $1,000 into $10,000 in a month for my students, no risk because I hedge everything.\" (Coach)",
+        "urgency: \"Send the mentorship fee by Zelle tonight, the price doubles tomorrow.\" (Coach)",
+        "unusual_payment_channel: \"Send the mentorship fee by Zelle tonight\" (Coach)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 2207
+    },
+    {
+      "id": "pay-01",
+      "category": "payment_channel",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.92,
+      "tactics": [
+        "too_good_to_be_true: \"I sent a cheque for $1,450.\" (Buyer)",
+        "unusual_payment_channel: \"Please send the extra $1,000 to my mover by PayPal Friends and Family\" (Buyer)",
+        "urgency: \"before the cheque clears\" (Buyer)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "unusual_payment_channel",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 2444
+    },
+    {
+      "id": "pay-02",
+      "category": "payment_channel",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "unusual_payment_channel: \"Pay by PayPal Friends and Family so we both avoid fees.\" (Seller)",
+        "urgency: \"I need payment in 10 minutes.\" (Seller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "unusual_payment_channel",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 2375
+    },
+    {
+      "id": "pay-03",
+      "category": "payment_channel",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "unusual_payment_channel: \"Payment only by Cash App.\" (Recruiter)",
+        "too_good_to_be_true: \"We'll reimburse you in your first salary.\" (Recruiter)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2312
+    },
+    {
+      "id": "pay-04",
+      "category": "payment_channel",
+      "label": "scam",
+      "split": "dev",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "too_good_to_be_true: \"You've won $750,000 in the International Sweepstakes!\" (Caller)",
+        "too_good_to_be_true: \"To release it you just pay the $3,500 tax and handling fee.\" (Caller)",
+        "secrecy: \"Keep this confidential until the money arrives, to avoid fraud.\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 2257
+    },
+    {
+      "id": "pay-05",
+      "category": "payment_channel",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.97,
+      "tactics": [
+        "impersonation: \"City Power here. Your account is past due\" (Caller)",
+        "threat: \"a crew will disconnect you in 45 minutes during your lunch rush\" (Caller)",
+        "urgency: \"will disconnect you in 45 minutes\" (Caller)",
+        "unusual_payment_channel: \"pay $680 now with a prepaid card and read me the numbers\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "threat",
+        "urgency",
+        "unusual_payment_channel"
+      ],
+      "failure": null,
+      "ms": 2414
+    },
+    {
+      "id": "ben-01",
+      "category": "benign_family_emergency",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1979
+    },
+    {
+      "id": "ben-02",
+      "category": "benign_family_emergency",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 2465
+    },
+    {
+      "id": "ben-03",
+      "category": "benign_family_emergency",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.85,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1571
+    },
+    {
+      "id": "ben-04",
+      "category": "benign_invoice",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1403
+    },
+    {
+      "id": "ben-05",
+      "category": "benign_invoice",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [
+        "urgency: \"We need the urgent rush fee approved today so your team can deliver Monday.\" (Client)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 3730
+    },
+    {
+      "id": "ben-06",
+      "category": "benign_invoice",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1659
+    },
+    {
+      "id": "ben-07",
+      "category": "benign_rent",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.85,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1318
+    },
+    {
+      "id": "ben-08",
+      "category": "benign_rent",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1359
+    },
+    {
+      "id": "ben-09",
+      "category": "benign_friends",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1497
+    },
+    {
+      "id": "ben-10",
+      "category": "benign_friends",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1719
+    },
+    {
+      "id": "ben-11",
+      "category": "benign_bank_alert",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1290
+    },
+    {
+      "id": "ben-12",
+      "category": "benign_bank_alert",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 2051
+    },
+    {
+      "id": "ben-13",
+      "category": "benign_grandchild",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.95,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1239
+    },
+    {
+      "id": "ben-14",
+      "category": "benign_grandchild",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1655
+    },
+    {
+      "id": "ben-15",
+      "category": "benign_adviser",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1495
+    },
+    {
+      "id": "ben-16",
+      "category": "benign_adviser",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1697
+    },
+    {
+      "id": "ben-17",
+      "category": "benign_scam_talk",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.95,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1308
+    },
+    {
+      "id": "ben-18",
+      "category": "benign_scam_talk",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.95,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1311
+    },
+    {
+      "id": "ben-19",
+      "category": "benign_crypto",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1978
+    },
+    {
+      "id": "ben-20",
+      "category": "benign_school",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1647
+    },
+    {
+      "id": "ben-21",
+      "category": "benign_contractor",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.85,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1354
+    },
+    {
+      "id": "ben-22",
+      "category": "benign_textbooks",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1245
+    },
+    {
+      "id": "ben-23",
+      "category": "benign_charity",
+      "label": "benign",
+      "split": "dev",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 2103
+    },
+    {
+      "id": "ben-24",
+      "category": "benign_marketplace",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 2831
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "ran_at": "2026-10-16T20:04:58.799Z",
+  "api": "http://127.0.0.1:4000",
+  "environment": "local API + worker, PayPal SANDBOX",
+  "results": [
+    {
+      "name": "held purchase with a live authorization",
+      "pass": true,
+      "purchase": "pur_CDpJ5_HIjL477w7U"
+    },
+    {
+      "name": "PayPal shows authorization CREATED and no capture while held",
+      "pass": true,
+      "auth": "CREATED",
+      "captures": 0
+    },
+    {
+      "name": "no token → 401",
+      "pass": true
+    },
+    {
+      "name": "any token before a link was issued → 410",
+      "pass": true
+    },
+    {
+      "name": "agent key cannot issue a hold link",
+      "pass": true
+    },
+    {
+      "name": "token is long and random (≥ 32 base64url chars)",
+      "pass": true,
+      "length": 32,
+      "expires_at": "2026-10-19T20:04:38.730Z"
+    },
+    {
+      "name": "wrong token once a link exists → 403",
+      "pass": true
+    },
+    {
+      "name": "re-issuing a link invalidates the previous one",
+      "pass": true
+    },
+    {
+      "name": "reviewer view shows amount, items, reasons and auto-void time",
+      "pass": true,
+      "amount": {
+        "currency_code": "USD",
+        "value": "80.00"
+      },
+      "reasons": [
+        "size: listing has no size"
+      ]
+    },
+    {
+      "name": "link expiry (finding: equals auto-void time)",
+      "pass": true,
+      "link_valid_for_hours": 72
+    },
+    {
+      "name": "concurrent approve + deny: exactly one 200, the other refused (409/410)",
+      "pass": true,
+      "approve": {
+        "status": 409,
+        "state": "Already decided"
+      },
+      "deny": {
+        "status": 200,
+        "state": "VOIDING"
+      }
+    },
+    {
+      "name": "final Witness state matches PayPal's own record",
+      "pass": true,
+      "witness": "VOIDED",
+      "paypal_auth": "VOIDED",
+      "paypal_captures": []
+    },
+    {
+      "name": "replayed token after the decision → refused",
+      "pass": true
+    },
+    {
+      "name": "audit chain valid and records the decision",
+      "pass": true,
+      "events": [
+        "purchase.submitted",
+        "purchase.screened",
+        "purchase.authorized",
+        "purchase.held",
+        "purchase.void_decided",
+        "purchase.voided"
+      ]
+    },
+    {
+      "name": "deny accepted; response says VOIDING, not VOIDED (decision ≠ completed PayPal action)",
+      "pass": true,
+      "state": "VOIDING"
+    },
+    {
+      "name": "deny → PayPal authorization VOIDED, $0 captured (independent GET)",
+      "pass": true,
+      "auth": "2W179943YY386214W",
+      "status": "VOIDED",
+      "seconds_to_voided": 4
+    }
+  ]
+}

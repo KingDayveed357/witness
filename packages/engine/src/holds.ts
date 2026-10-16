@@ -111,9 +111,13 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
     }
   }
 
+  // Set only when this request's decision is the one that took effect, so a request that lost a race
+  // with a concurrent decision gets 409 instead of a 200 that looks like its own success.
+  let applied = false;
   await withTx(d.pool, async (tx) => {
     const p = (await tx.db.select().from(purchases).where(and(eq(purchases.id, purchaseId), eq(purchases.state, "HELD"))).for("update").limit(1))[0];
     if (!p) return;
+    applied = true;
     const intent = (await tx.db.select().from(intents).where(eq(intents.id, p.intentId)).limit(1))[0]!;
     const stale = intent.status !== "CONFIRMED" || intent.policyDigest !== p.policyDigest;
     const now = nowOf(d);
@@ -136,5 +140,6 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
   });
 
   const after = await load(d, purchaseId);
+  if (!applied) return bad(409, "Already decided", `Another decision was recorded first; the purchase is ${after!.p.state}`);
   return { kind: "ok", value: view(after!.p, after!.h) };
 }

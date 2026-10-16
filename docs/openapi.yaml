@@ -533,6 +533,24 @@ components:
               variant: { type: object, additionalProperties: { type: string } }
               quantity: { type: integer, minimum: 1, maximum: 99 }
         agent_note: { type: string, maxLength: 500, description: "Free text; treated as untrusted and never used for decisions" }
+        conversation:
+          type: object
+          additionalProperties: false
+          required: [lines]
+          description: "Second Key (sprint prototype): the untrusted conversation the payer was in. Screened for manipulation; it can only hold the payment for review (check ai.manipulation), never approve it."
+          properties:
+            context: { type: string, maxLength: 500 }
+            lines:
+              type: array
+              minItems: 1
+              maxItems: 60
+              items:
+                type: object
+                additionalProperties: false
+                required: [speaker, text]
+                properties:
+                  speaker: { type: string, minLength: 1, maxLength: 80 }
+                  text: { type: string, minLength: 1, maxLength: 1000 }
     PurchaseStatus:
       type: object
       properties:

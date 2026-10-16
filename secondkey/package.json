@@ -1,0 +1,21 @@
+{
+  "name": "@witness/secondkey",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Second Key feasibility sprint: detector, evaluations and spikes (isolated from the Witness apps)",
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
+    "@witness/ai": "workspace:*",
+    "@witness/config": "workspace:*",
+    "tsx": "4.23.15",
+    "zod": "4.6.5",
+    "@witness/paypal": "workspace:*",
+    "@witness/core": "workspace:*",
+    "@witness/engine": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "24.25.0"
+  }
+}

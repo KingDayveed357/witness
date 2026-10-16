@@ -1,0 +1,15 @@
+{
+  "risk": "high",
+  "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+  "confidence": 0.9,
+  "evidence": [
+    "impersonation: \"Grandma\"",
+    "impersonation: \"a sound different\"",
+    "urgency: \"please I need $1800 for bail right now\"",
+    "secrecy: \"promise you won't tell her\"",
+    "authority_pressure: \"a got arrested after a car accident\"",
+    "emotional_manipulation: \"I'm in real trouble\""
+  ],
+  "ungrounded": [],
+  "cost_usd": 0.000585
+}

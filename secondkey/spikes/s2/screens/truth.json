@@ -1,0 +1,645 @@
+[
+  {
+    "id": "fam-01",
+    "file": "fam-01.png",
+    "style": "imessage",
+    "font_px": 16,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "Rose, 78, is asked to send $1,800.",
+    "lines": [
+      {
+        "speaker": "Caller",
+        "text": "Grandma? It's me, Danny. I'm in real trouble, I got arrested after a car accident."
+      },
+      {
+        "speaker": "Rose",
+        "text": "Danny? You sound different."
+      },
+      {
+        "speaker": "Caller",
+        "text": "My nose is broken, that's why. Please, I need $1,800 for bail right now or they keep me overnight."
+      },
+      {
+        "speaker": "Caller",
+        "text": "And please don't tell Mom, she'll kill me. Promise you won't tell her."
+      }
+    ],
+    "key_quotes": [
+      "I need $1,800 for bail right now",
+      "don't tell Mom",
+      "My nose is broken, that's why"
+    ],
+    "tactics": [
+      "impersonation",
+      "urgency",
+      "secrecy",
+      "emotional_manipulation"
+    ]
+  },
+  {
+    "id": "fam-02",
+    "file": "fam-02.png",
+    "style": "whatsapp",
+    "font_px": 15,
+    "filler_lines": 3,
+    "label": "scam",
+    "context": "Walter gets a text from an unknown number.",
+    "lines": [
+      {
+        "speaker": "Unknown number",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Unknown number",
+        "text": "Did you see the game last night?"
+      },
+      {
+        "speaker": "Unknown number",
+        "text": "Hi Dad, this is my new number, my phone fell in the sink. Save this one."
+      },
+      {
+        "speaker": "Walter",
+        "text": "Oh hi love, everything ok?"
+      },
+      {
+        "speaker": "Unknown number",
+        "text": "Not really, I have to pay a supplier invoice today and my banking app is locked on the new phone. Can you send £940 to this account and I'll pay you back tomorrow?"
+      },
+      {
+        "speaker": "Unknown number",
+        "text": "It has to go before 3pm. Sort code 40-11-22, account 51129834."
+      }
+    ],
+    "key_quotes": [
+      "this is my new number",
+      "It has to go before 3pm",
+      "my banking app is locked on the new phone"
+    ],
+    "tactics": [
+      "impersonation",
+      "urgency"
+    ]
+  },
+  {
+    "id": "fam-05",
+    "file": "fam-05.png",
+    "style": "imessage-dark",
+    "font_px": 15,
+    "filler_lines": 2,
+    "label": "scam",
+    "context": "George gets messages from someone claiming to be his granddaughter abroad.",
+    "lines": [
+      {
+        "speaker": "Granddaughter?",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Granddaughter?",
+        "text": "Grandpa it's Emma, I'm in Lisbon and my bag got stolen with my passport and cards."
+      },
+      {
+        "speaker": "Granddaughter?",
+        "text": "The hostel will throw me out tonight. Could you buy $500 of Apple gift cards and send me the codes? It's the only thing that works here."
+      },
+      {
+        "speaker": "Granddaughter?",
+        "text": "Please keep it between us, I don't want Mum to panic."
+      }
+    ],
+    "key_quotes": [
+      "buy $500 of Apple gift cards and send me the codes",
+      "keep it between us",
+      "The hostel will throw me out tonight"
+    ],
+    "tactics": [
+      "impersonation",
+      "urgency",
+      "unusual_payment_channel",
+      "secrecy"
+    ]
+  },
+  {
+    "id": "tech-01",
+    "file": "tech-01.png",
+    "style": "sms",
+    "font_px": 14,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "Frank called a number shown in a browser pop-up.",
+    "lines": [
+      {
+        "speaker": "Agent",
+        "text": "This is Microsoft Windows Defender support. Your computer has been infected with a banking trojan."
+      },
+      {
+        "speaker": "Agent",
+        "text": "Please install AnyDesk so I can remove it before the hackers empty your accounts."
+      },
+      {
+        "speaker": "Agent",
+        "text": "The security license costs $399. We accept Google Play cards because they are untraceable for the hackers."
+      }
+    ],
+    "key_quotes": [
+      "install AnyDesk",
+      "before the hackers empty your accounts",
+      "We accept Google Play cards"
+    ],
+    "tactics": [
+      "impersonation",
+      "remote_access",
+      "threat",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "tech-04",
+    "file": "tech-04.png",
+    "style": "sms",
+    "font_px": 13,
+    "filler_lines": 1,
+    "label": "scam",
+    "context": "Sue gets a text saying her Apple ID is locked.",
+    "lines": [
+      {
+        "speaker": "Text",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Text",
+        "text": "Apple Support: Your Apple ID has been locked due to suspicious purchases. Call 1-800-555-0144 within 2 hours to avoid permanent deletion."
+      },
+      {
+        "speaker": "Agent",
+        "text": "To unlock it I need the verification code we just sent you, and a payment of $150 in Bitcoin to reinstate the account."
+      }
+    ],
+    "key_quotes": [
+      "within 2 hours to avoid permanent deletion",
+      "a payment of $150 in Bitcoin",
+      "I need the verification code we just sent you"
+    ],
+    "tactics": [
+      "impersonation",
+      "urgency",
+      "threat",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "rom-01",
+    "file": "rom-01.png",
+    "style": "whatsapp",
+    "font_px": 14,
+    "filler_lines": 4,
+    "label": "scam",
+    "context": "Carol has messaged 'Mark' daily for three months; they have never met.",
+    "lines": [
+      {
+        "speaker": "Mark",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Mark",
+        "text": "Did you see the game last night?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Haha yes, unbelievable ending"
+      },
+      {
+        "speaker": "Mark",
+        "text": "My love, I'm finally coming home from the base in Syria. Customs is holding my gold bars and needs a $2,800 release fee."
+      },
+      {
+        "speaker": "Mark",
+        "text": "I can't access my accounts from here. You are the only one I trust."
+      },
+      {
+        "speaker": "Mark",
+        "text": "Don't tell your sister about us yet, she won't understand."
+      }
+    ],
+    "key_quotes": [
+      "Customs is holding my gold bars",
+      "You are the only one I trust",
+      "Don't tell your sister about us"
+    ],
+    "tactics": [
+      "emotional_manipulation",
+      "secrecy",
+      "too_good_to_be_true"
+    ]
+  },
+  {
+    "id": "rom-04",
+    "file": "rom-04.png",
+    "style": "telegram-dark",
+    "font_px": 15,
+    "filler_lines": 2,
+    "label": "scam",
+    "context": "Ann's online partner 'Ben' says his daughter is sick.",
+    "lines": [
+      {
+        "speaker": "Ben",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Ben",
+        "text": "Sophie needs medicine the clinic won't release without payment and my card was blocked abroad."
+      },
+      {
+        "speaker": "Ben",
+        "text": "Please send $900 by PayPal Friends and Family, there are no fees that way. I'm begging you, you're all I have."
+      }
+    ],
+    "key_quotes": [
+      "send $900 by PayPal Friends and Family",
+      "you're all I have"
+    ],
+    "tactics": [
+      "emotional_manipulation",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "gov-01",
+    "file": "gov-01.png",
+    "style": "imessage",
+    "font_px": 13,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "Ed receives a call from 'the IRS'.",
+    "lines": [
+      {
+        "speaker": "Caller",
+        "text": "This is Agent Collins, IRS criminal division. You owe $4,312 in back taxes and a warrant has been issued for your arrest."
+      },
+      {
+        "speaker": "Caller",
+        "text": "Officers will arrive in two hours unless you settle now with prepaid Visa cards."
+      }
+    ],
+    "key_quotes": [
+      "a warrant has been issued for your arrest",
+      "Officers will arrive in two hours",
+      "settle now with prepaid Visa cards"
+    ],
+    "tactics": [
+      "impersonation",
+      "authority_pressure",
+      "threat",
+      "urgency",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "gov-03",
+    "file": "gov-03.png",
+    "style": "sms",
+    "font_px": 16,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "Sam is told he missed jury duty.",
+    "lines": [
+      {
+        "speaker": "Caller",
+        "text": "Sheriff's office. You missed federal jury duty and there's a $1,500 fine. Pay with gift cards within the hour to avoid being booked."
+      },
+      {
+        "speaker": "Caller",
+        "text": "Do not hang up and do not discuss this, it's a sealed matter."
+      }
+    ],
+    "key_quotes": [
+      "Pay with gift cards within the hour",
+      "do not discuss this, it's a sealed matter"
+    ],
+    "tactics": [
+      "impersonation",
+      "authority_pressure",
+      "threat",
+      "urgency",
+      "secrecy",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "safe-01",
+    "file": "safe-01.png",
+    "style": "whatsapp",
+    "font_px": 13,
+    "filler_lines": 1,
+    "label": "scam",
+    "context": "Beth gets a call from 'her bank's fraud team'.",
+    "lines": [
+      {
+        "speaker": "Caller",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Caller",
+        "text": "This is the fraud team at Northstar Bank. A criminal has access to your account and staff at your branch are involved."
+      },
+      {
+        "speaker": "Caller",
+        "text": "Move your $18,000 to a new safe account we've opened for you. Don't tell the branch, they may be part of it."
+      }
+    ],
+    "key_quotes": [
+      "Move your $18,000 to a new safe account",
+      "Don't tell the branch"
+    ],
+    "tactics": [
+      "impersonation",
+      "safe_account",
+      "secrecy",
+      "threat"
+    ]
+  },
+  {
+    "id": "safe-05",
+    "file": "safe-05.png",
+    "style": "sms",
+    "font_px": 15,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "Joy gets a text and then a call.",
+    "lines": [
+      {
+        "speaker": "Text",
+        "text": "BankOne: Did you attempt a $2,450 payment to K. Morris? Reply YES or NO."
+      },
+      {
+        "speaker": "Caller",
+        "text": "Thanks for replying NO. To stop it, I need you to send the same amount to the holding account I'll read out, it bounces back in an hour."
+      }
+    ],
+    "key_quotes": [
+      "send the same amount to the holding account",
+      "it bounces back in an hour"
+    ],
+    "tactics": [
+      "impersonation",
+      "safe_account"
+    ]
+  },
+  {
+    "id": "inv-01",
+    "file": "inv-01.png",
+    "style": "telegram-dark",
+    "font_px": 14,
+    "filler_lines": 3,
+    "label": "scam",
+    "context": "Victor joined a WhatsApp investing group.",
+    "lines": [
+      {
+        "speaker": "Mentor",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Mentor",
+        "text": "Did you see the game last night?"
+      },
+      {
+        "speaker": "Mentor",
+        "text": "Our AI trading bot returns 3% daily, guaranteed. Members made $40,000 last month."
+      },
+      {
+        "speaker": "Mentor",
+        "text": "Only 5 spots left in the VIP tier, deposit $10,000 in USDT today to lock your place."
+      }
+    ],
+    "key_quotes": [
+      "returns 3% daily, guaranteed",
+      "Only 5 spots left",
+      "deposit $10,000 in USDT today"
+    ],
+    "tactics": [
+      "too_good_to_be_true",
+      "urgency",
+      "unusual_payment_channel"
+    ]
+  },
+  {
+    "id": "pay-02",
+    "file": "pay-02.png",
+    "style": "imessage-dark",
+    "font_px": 16,
+    "filler_lines": 1,
+    "label": "scam",
+    "context": "Ivan is buying concert tickets from a stranger.",
+    "lines": [
+      {
+        "speaker": "Seller",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Seller",
+        "text": "I'll send the tickets right after payment. Pay by PayPal Friends and Family so we both avoid fees."
+      },
+      {
+        "speaker": "Seller",
+        "text": "Lots of people want them, I need payment in 10 minutes."
+      }
+    ],
+    "key_quotes": [
+      "Pay by PayPal Friends and Family so we both avoid fees",
+      "I need payment in 10 minutes"
+    ],
+    "tactics": [
+      "unusual_payment_channel",
+      "urgency"
+    ]
+  },
+  {
+    "id": "h-bec-01",
+    "file": "h-bec-01.png",
+    "style": "email",
+    "font_px": 14,
+    "filler_lines": 0,
+    "label": "scam",
+    "context": "A small firm's bookkeeper gets a reply in an existing email thread with their real supplier.",
+    "lines": [
+      {
+        "speaker": "Supplier (existing thread)",
+        "text": "Hi Dana, thanks for the order. Quick note: we've moved banks after an audit, so please use our new account for invoice #8812."
+      },
+      {
+        "speaker": "Supplier (existing thread)",
+        "text": "New details: Harbor Trust, account 0099812771. Our old account will reject payments from Monday."
+      }
+    ],
+    "key_quotes": [
+      "please use our new account for invoice #8812",
+      "Our old account will reject payments from Monday"
+    ],
+    "tactics": [
+      "impersonation",
+      "urgency"
+    ]
+  },
+  {
+    "id": "ben-01",
+    "file": "ben-01.png",
+    "style": "imessage",
+    "font_px": 15,
+    "filler_lines": 2,
+    "label": "benign",
+    "context": "Rose's daughter calls from her usual saved number.",
+    "lines": [
+      {
+        "speaker": "Daughter (saved contact)",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Daughter (saved contact)",
+        "text": "Mom, it's Claire. Tom fell off the ladder and we're at St. Mary's ER, he's okay but needs stitches."
+      },
+      {
+        "speaker": "Daughter (saved contact)",
+        "text": "Can you pick up the kids from school at 3? No need for money, just help. Call Tom's phone if you can't reach me."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  },
+  {
+    "id": "ben-09",
+    "file": "ben-09.png",
+    "style": "whatsapp",
+    "font_px": 16,
+    "filler_lines": 1,
+    "label": "benign",
+    "context": "Friends split a dinner bill after eating together.",
+    "lines": [
+      {
+        "speaker": "Priya (friend)",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Priya (friend)",
+        "text": "That was so fun last night! Your share of dinner was $46."
+      },
+      {
+        "speaker": "Priya (friend)",
+        "text": "Just send it on PayPal Friends and Family whenever, no rush."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  },
+  {
+    "id": "ben-11",
+    "file": "ben-11.png",
+    "style": "sms",
+    "font_px": 14,
+    "filler_lines": 0,
+    "label": "benign",
+    "context": "Ed gets a genuine fraud text from his bank.",
+    "lines": [
+      {
+        "speaker": "Bank text",
+        "text": "Northstar Bank: unusual card activity detected. If this wasn't you, call the number on the back of your card."
+      },
+      {
+        "speaker": "Bank text",
+        "text": "We will never ask you to move money or share a passcode."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  },
+  {
+    "id": "ben-14",
+    "file": "ben-14.png",
+    "style": "imessage-dark",
+    "font_px": 14,
+    "filler_lines": 2,
+    "label": "benign",
+    "context": "A grandmother plans a surprise with her grandson.",
+    "lines": [
+      {
+        "speaker": "Grandson (saved contact)",
+        "text": "Hey, are you free later?"
+      },
+      {
+        "speaker": "Me",
+        "text": "Sure, after lunch works."
+      },
+      {
+        "speaker": "Grandson (saved contact)",
+        "text": "Can you chip in $40 for Mom's birthday present? I'm buying the necklace she liked."
+      },
+      {
+        "speaker": "Grandson (saved contact)",
+        "text": "Don't tell her, it's a surprise! I'll show you the receipt at the party."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  },
+  {
+    "id": "ben-20",
+    "file": "ben-20.png",
+    "style": "email",
+    "font_px": 15,
+    "filler_lines": 0,
+    "label": "benign",
+    "context": "A parent receives a school email.",
+    "lines": [
+      {
+        "speaker": "School office",
+        "text": "Reminder: the $85 museum trip payment is due tomorrow via the parent portal so we can confirm numbers with the museum."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  },
+  {
+    "id": "h-ben-closing-01",
+    "file": "h-ben-closing-01.png",
+    "style": "telegram-dark",
+    "font_px": 11,
+    "filler_lines": 0,
+    "label": "benign",
+    "context": "A home buyer's own title company, on a call she placed using the number from her signed purchase contract.",
+    "lines": [
+      {
+        "speaker": "Title officer",
+        "text": "Your closing is Friday. The wire of $62,300 has to arrive by Thursday noon, or the closing moves."
+      },
+      {
+        "speaker": "Title officer",
+        "text": "Please only use the wire instructions on our letterhead from your contract packet, and call this number back before sending. We will never change instructions by email."
+      }
+    ],
+    "key_quotes": [],
+    "tactics": []
+  }
+]

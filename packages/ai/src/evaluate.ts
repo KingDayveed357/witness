@@ -32,7 +32,7 @@ export async function evaluateScreen(
   if (!cart || screenOutcome(deterministic) === "REJECT") return { outcome: "REJECT", checks: deterministic, ai_called: false, ai_ms: 0 };
 
   const t0 = Date.now();
-  const aiChecks = await aiScreen(ai, policy.data, cart, facts, deterministic);
+  const aiChecks = await aiScreen(ai, policy.data, cart, facts, deterministic, req.data.conversation);
   const ai_ms = Date.now() - t0;
   const all = [...settleDeferred(deterministic, aiChecks), ...aiChecks];
   const o = screenOutcome(all);

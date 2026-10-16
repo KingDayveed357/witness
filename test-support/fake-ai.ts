@@ -30,6 +30,14 @@ export function harnessAi(): FakeLlm {
         confidence: 0.9,
       };
     })
+    .on("manipulation", (input) => {
+      // Second Key: quote the scam lines verbatim; anything else is low risk.
+      const lines = (JSON.parse(input) as { conversation: { speaker: string; text: string }[] }).conversation;
+      const hits = lines.filter((l) => /bail|don't tell|gift card/i.test(l.text));
+      return hits.length
+        ? { risk: "high", tactics: hits.map((l) => ({ tactic: "urgency", quote: l.text.slice(0, 60), speaker: l.speaker, why: "pressure" })), legitimate_explanation: "", confidence: 0.9, needs_independent_verification: true, recommended_action: "hold_and_verify" }
+        : { risk: "low", tactics: [], legitimate_explanation: "agreed invoice", confidence: 0.9, needs_independent_verification: false, recommended_action: "proceed" };
+    })
     .on("semantic", (input) => {
       const { constraints } = JSON.parse(input) as { constraints: { id: string }[] };
       const products = (JSON.parse(input) as { products: { product_id: string }[] }).products;

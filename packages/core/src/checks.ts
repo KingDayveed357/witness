@@ -37,6 +37,16 @@ export const PurchaseRequest = z.strictObject({
     .max(10),
   /** Untrusted free text from the agent. Stored, never used to decide. */
   agent_note: z.string().max(500).optional(),
+  /**
+   * Untrusted conversation the payer was in when asked to pay (Second Key). Screened for
+   * manipulation; it can only hold the payment for a trusted contact, never approve it.
+   */
+  conversation: z
+    .strictObject({
+      context: z.string().max(500).default(""),
+      lines: z.array(z.strictObject({ speaker: z.string().min(1).max(80), text: z.string().min(1).max(1000) })).min(1).max(60),
+    })
+    .optional(),
 });
 export type PurchaseRequest = z.infer<typeof PurchaseRequest>;
 

@@ -1,0 +1,67 @@
+﻿{
+    "engine":  "System.Speech dictation (Windows, offline)",
+    "total_ms":  5081,
+    "segments":  [
+                     {
+                         "text":  "Grandma",
+                         "confidence":  0.321,
+                         "at_ms":  939
+                     },
+                     {
+                         "text":  "sweet Denny",
+                         "confidence":  0.378,
+                         "at_ms":  1798
+                     },
+                     {
+                         "text":  "I\u0027m in real trouble",
+                         "confidence":  0.833,
+                         "at_ms":  2139
+                     },
+                     {
+                         "text":  "a got arrested after a car accident",
+                         "confidence":  0.798,
+                         "at_ms":  2456
+                     },
+                     {
+                         "text":  "Denny",
+                         "confidence":  0.061,
+                         "at_ms":  2639
+                     },
+                     {
+                         "text":  "a sound different",
+                         "confidence":  0.344,
+                         "at_ms":  2887
+                     },
+                     {
+                         "text":  "light noses broken that\u0027s why",
+                         "confidence":  0.594,
+                         "at_ms":  3362
+                     },
+                     {
+                         "text":  "please I need $1800 for bail right now",
+                         "confidence":  0.664,
+                         "at_ms":  3812
+                     },
+                     {
+                         "text":  "they keep me overnight",
+                         "confidence":  0.839,
+                         "at_ms":  4081
+                     },
+                     {
+                         "text":  "and please don\u0027t tell of",
+                         "confidence":  0.525,
+                         "at_ms":  4531
+                     },
+                     {
+                         "text":  "Il killed a",
+                         "confidence":  0.459,
+                         "at_ms":  4744
+                     },
+                     {
+                         "text":  "promise you won\u0027t tell her",
+                         "confidence":  0.622,
+                         "at_ms":  5070
+                     }
+                 ],
+    "transcript":  "Grandma sweet Denny I\u0027m in real trouble a got arrested after a car accident Denny a sound different light noses broken that\u0027s why please I need $1800 for bail right now they keep me overnight and please don\u0027t tell of Il killed a promise you won\u0027t tell her"
+}

@@ -209,7 +209,7 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
   if (step.next) {
     // AI checks run outside any transaction. They can only make the decision stricter, and any
     // failure (including no provider configured) is "unknown", which becomes HOLD.
-    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts, step.deterministic);
+    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts, step.deterministic, req.conversation);
     const proceed = await withTx(d.pool, async (tx) => {
       const locked = (await tx.db.select().from(purchases).where(eq(purchases.id, step.purchaseId)).for("update").limit(1))[0];
       if (!locked || locked.state !== "SCREENING") return false;

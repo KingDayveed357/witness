@@ -1,0 +1,50 @@
+{
+  "ran_at": "2026-10-16T20:14:28.212Z",
+  "reference": "Grandma? It's me, Danny. I'm in real trouble. I got arrested after a car accident. Danny? You sound different. My nose is broken, that's why. Please, I need eighteen hundred dollars for bail right now, or they keep me overnight. And please don't tell Mom. She'll kill me. Promise you won't tell her.",
+  "browser": "Edg/155.0.4283.45",
+  "audio": {
+    "file": "secondkey/spikes/s3/call.wav",
+    "seconds": 29.7,
+    "synthetic": true
+  },
+  "T1_fake_microphone_headful": {
+    "supported": true,
+    "finals": [],
+    "interims": 0,
+    "first_word_ms": null,
+    "last_final_ms": null,
+    "errors": [
+      "network"
+    ],
+    "track_mode": false,
+    "ended_ms": 3794,
+    "transcript": ""
+  },
+  "T2_start_with_track_headful": {
+    "supported": true,
+    "finals": [],
+    "interims": 0,
+    "first_word_ms": null,
+    "last_final_ms": null,
+    "errors": [
+      "network"
+    ],
+    "track_mode": true,
+    "start_with_track": "accepted",
+    "ended_ms": 2090,
+    "transcript": ""
+  },
+  "T3_permission_denied": {
+    "supported": true,
+    "finals": [],
+    "interims": 0,
+    "first_word_ms": null,
+    "last_final_ms": null,
+    "errors": [
+      "not-allowed"
+    ],
+    "track_mode": false,
+    "ended_ms": 266,
+    "transcript": ""
+  }
+}

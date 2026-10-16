@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "secondkey"
 onlyBuiltDependencies:
   - "@embedded-postgres/windows-x64"
   - esbuild

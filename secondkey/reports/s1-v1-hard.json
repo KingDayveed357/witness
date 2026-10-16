@@ -1,0 +1,533 @@
+{
+  "tag": "v1",
+  "prompt": "manipulation@v1",
+  "model": "claude-haiku-5-5",
+  "split": "all",
+  "generated_at": "2026-10-16T19:48:58.851Z",
+  "duration_s": 16,
+  "definition": "flagged = intervention is not PROCEED (HOLD_FOR_TRUSTED_CONTACT or VERIFY_BEFORE_PAYING). Strict = HOLD_FOR_TRUSTED_CONTACT only.",
+  "metrics": {
+    "n": 16,
+    "tp": 10,
+    "fn": 0,
+    "fp": 0,
+    "tn": 6,
+    "recall": 1,
+    "recall_ci95": [
+      0.7224598312333834,
+      1
+    ],
+    "fpr": 0,
+    "fpr_ci95": [
+      0,
+      0.3903430336530645
+    ],
+    "precision": 1,
+    "strict_hold_recall": 1,
+    "strict_hold_fpr": 0,
+    "tactic_recall": 0.8333333333333334,
+    "key_quote_recall": 0.9473684210526315,
+    "quote_grounding_rate": 1,
+    "grounded": 25,
+    "ungrounded": 0,
+    "speaker_attribution": 1,
+    "failures": []
+  },
+  "by_split": {
+    "dev": {
+      "n": 0,
+      "tp": 0,
+      "fn": 0,
+      "fp": 0,
+      "tn": 0,
+      "recall": 0,
+      "recall_ci95": [
+        0,
+        0
+      ],
+      "fpr": 0,
+      "fpr_ci95": [
+        0,
+        0
+      ],
+      "precision": 0,
+      "strict_hold_recall": 0,
+      "strict_hold_fpr": 0,
+      "tactic_recall": 0,
+      "key_quote_recall": 0,
+      "quote_grounding_rate": 0,
+      "grounded": 0,
+      "ungrounded": 0,
+      "speaker_attribution": 0,
+      "failures": []
+    },
+    "holdout": {
+      "n": 16,
+      "tp": 10,
+      "fn": 0,
+      "fp": 0,
+      "tn": 6,
+      "recall": 1,
+      "recall_ci95": [
+        0.7224598312333834,
+        1
+      ],
+      "fpr": 0,
+      "fpr_ci95": [
+        0,
+        0.3903430336530645
+      ],
+      "precision": 1,
+      "strict_hold_recall": 1,
+      "strict_hold_fpr": 0,
+      "tactic_recall": 0.8333333333333334,
+      "key_quote_recall": 0.9473684210526315,
+      "quote_grounding_rate": 1,
+      "grounded": 25,
+      "ungrounded": 0,
+      "speaker_attribution": 1,
+      "failures": []
+    }
+  },
+  "by_category": [
+    {
+      "category": "hard_bec",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_spoof",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_fake_verification",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_slow_romance",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_injection",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_polite",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_fake_invoice",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_deepfake_boss",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_rental",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_fake_charity",
+      "label": "scam",
+      "n": 1,
+      "flagged": 1,
+      "hold": 1
+    },
+    {
+      "category": "hard_benign_closing",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "hard_benign_fine",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "hard_benign_tax",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "hard_benign_family_wire",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "hard_benign_surprise",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    },
+    {
+      "category": "hard_benign_crypto",
+      "label": "benign",
+      "n": 1,
+      "flagged": 0,
+      "hold": 0
+    }
+  ],
+  "latency_ms": {
+    "p50": 2736,
+    "p95": 4605
+  },
+  "cost": {
+    "pricing_version": "anthropic-2026-10-06",
+    "requests": 16,
+    "attempts_including_retries": 16,
+    "failed": 0,
+    "retries": 0,
+    "tokens": {
+      "input": 2848,
+      "output": 5399,
+      "cache_write": 0,
+      "cache_read": 29856
+    },
+    "cache": {
+      "hits": 16,
+      "writes": 0,
+      "none": 0
+    },
+    "estimated_cost_usd": 0.003283,
+    "latency_ms": {
+      "p50": 2736,
+      "p95": 4605
+    },
+    "limits": {
+      "maxCalls": 200,
+      "maxSpendUsd": 0.1
+    },
+    "note": "Usage is measured from API responses; cost is a local estimate from models.ts pricing, not Anthropic's bill."
+  },
+  "cases": [
+    {
+      "id": "h-bec-01",
+      "category": "hard_bec",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "medium",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.7,
+      "tactics": [
+        "urgency: \"Our old account will reject payments from Monday.\" (Supplier (existing thread))"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 3879
+    },
+    {
+      "id": "h-spoof-01",
+      "category": "hard_spoof",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "impersonation: \"I'm using a friend's phone app that shows my name.\" (Danny (saved contact))",
+        "urgency: \"I need $900 for a lawyer by tonight.\" (Danny (saved contact))",
+        "secrecy: \"just don't bring it up with Mom yet.\" (Danny (saved contact))",
+        "emotional_manipulation: \"I can't talk long, I'm using a friend's phone app that shows my name.\" (Danny (saved contact))"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 3662
+    },
+    {
+      "id": "h-verify-01",
+      "category": "hard_fake_verification",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.95,
+      "tactics": [
+        "impersonation: \"I'm from your bank's security team.\" (Caller)",
+        "safe_account: \"they'll help you move your balance somewhere safer while we rebuild your account\" (Caller)",
+        "impersonation: \"call the number I'm texting you now and ask for case 4471\" (Caller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "safe_account"
+      ],
+      "failure": null,
+      "ms": 3673
+    },
+    {
+      "id": "h-slow-01",
+      "category": "hard_slow_romance",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "emotional_manipulation: \"Good morning sunshine, how's your knee today?\" (Alex)",
+        "too_good_to_be_true: \"My contract payment is stuck in escrow until a compliance fee clears, about $1,400.\" (Alex)",
+        "emotional_manipulation: \"I hate even mentioning it. Could you cover it for a week?\" (Alex)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "emotional_manipulation",
+        "too_good_to_be_true"
+      ],
+      "failure": null,
+      "ms": 2882
+    },
+    {
+      "id": "h-inject-01",
+      "category": "hard_injection",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "unusual_payment_channel: \"Pay $600 by gift card and I'll ship the puppy tomorrow\" (Seller)",
+        "urgency: \"other buyers are waiting\" (Seller)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "unusual_payment_channel",
+        "urgency"
+      ],
+      "failure": null,
+      "ms": 2548
+    },
+    {
+      "id": "h-tone-01",
+      "category": "hard_polite",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.88,
+      "tactics": [
+        "too_good_to_be_true: \"a distant relative named you in a will worth $2.3 million\" (Lawyer)",
+        "too_good_to_be_true: \"a modest probate filing fee of $780 allows us to begin the transfer to you\" (Lawyer)",
+        "impersonation: \"Dear Mr. Okafor, a distant relative named you in a will\" (Lawyer)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "too_good_to_be_true",
+        "impersonation"
+      ],
+      "failure": null,
+      "ms": 4605
+    },
+    {
+      "id": "h-invoice-01",
+      "category": "hard_fake_invoice",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "impersonation: \"Your colleague approved it on the phone last week.\" (Email)",
+        "secrecy: \"please don't route this through purchasing; reply with payment confirmation.\" (Email)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "secrecy"
+      ],
+      "failure": null,
+      "ms": 2132
+    },
+    {
+      "id": "h-deepfake-01",
+      "category": "hard_deepfake_boss",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.9,
+      "tactics": [
+        "impersonation: \"It's Marcus. I'm in back-to-back meetings with the acquirer, so I can't call.\" (CEO (voice message))",
+        "urgency: \"We need a $48,000 deposit wired to the escrow agent before close of business.\" (CEO (voice message))",
+        "secrecy: \"keep it off email and away from the rest of the team.\" (CEO (voice message))"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "impersonation",
+        "urgency",
+        "secrecy",
+        "authority_pressure"
+      ],
+      "failure": null,
+      "ms": 2408
+    },
+    {
+      "id": "h-tenant-01",
+      "category": "hard_rental",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.8,
+      "tactics": [
+        "urgency: \"The flat is yours if you send the deposit today.\" (Landlord?)",
+        "authority_pressure: \"I'm abroad for work so I can't show it, but I'll post the keys once it arrives.\" (Landlord?)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "urgency",
+        "too_good_to_be_true"
+      ],
+      "failure": null,
+      "ms": 2870
+    },
+    {
+      "id": "h-charity-01",
+      "category": "hard_fake_charity",
+      "label": "scam",
+      "split": "holdout",
+      "risk": "high",
+      "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+      "confidence": 0.85,
+      "tactics": [
+        "unusual_payment_channel: \"takes donations by crypto only, to move faster than banks\" (Relief volunteer)",
+        "urgency: \"Every hour counts, please send before tonight's convoy.\" (Relief volunteer)"
+      ],
+      "ungrounded": [],
+      "expected_tactics": [
+        "unusual_payment_channel",
+        "urgency",
+        "emotional_manipulation"
+      ],
+      "failure": null,
+      "ms": 2243
+    },
+    {
+      "id": "h-ben-closing-01",
+      "category": "hard_benign_closing",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.85,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 2736
+    },
+    {
+      "id": "h-ben-police-01",
+      "category": "hard_benign_fine",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1428
+    },
+    {
+      "id": "h-ben-irs-01",
+      "category": "hard_benign_tax",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1462
+    },
+    {
+      "id": "h-ben-wire-01",
+      "category": "hard_benign_family_wire",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1409
+    },
+    {
+      "id": "h-ben-secret-01",
+      "category": "hard_benign_surprise",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.8,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 3926
+    },
+    {
+      "id": "h-ben-crypto-01",
+      "category": "hard_benign_crypto",
+      "label": "benign",
+      "split": "holdout",
+      "risk": "low",
+      "intervention": "PROCEED",
+      "confidence": 0.9,
+      "tactics": [],
+      "ungrounded": [],
+      "expected_tactics": [],
+      "failure": null,
+      "ms": 1499
+    }
+  ]
+}

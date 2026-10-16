@@ -100,6 +100,23 @@ describe("HOLD lifecycle over HTTP", () => {
     expect(h.fake.auths.get([...h.fake.auths.keys()].at(-1)!)!.status).toBe("VOIDED");
   });
 
+  test("concurrent approve and deny: exactly one takes effect; the other is refused (409/410), never a misleading 200", async () => {
+    const id = await heldPurchase();
+    const { token } = await link(id);
+    const [a, d] = await Promise.all([
+      app.inject({ method: "POST", url: `/v1/holds/${id}/approve`, payload: { token } }),
+      app.inject({ method: "POST", url: `/v1/holds/${id}/deny`, payload: { token } }),
+    ]);
+    // The winner gets 200. The loser never does: 409 if it raced past the token check (new guard),
+    // 410 if the winner had already consumed the token.
+    expect([a.statusCode, d.statusCode].filter((c) => c === 200)).toHaveLength(1);
+    const loser = a.statusCode === 200 ? d : a;
+    expect([409, 410]).toContain(loser.statusCode);
+    await h.drain();
+    const final = (await app.inject({ method: "GET", url: `/v1/holds/${id}`, headers: bearer("shopper") })).json().state;
+    expect(final).toBe(a.statusCode === 200 ? "CAPTURED" : "VOIDED");
+  });
+
   test("the signed-in shopper can decide without a link", async () => {
     const id = await heldPurchase();
     const r = await app.inject({ method: "POST", url: `/v1/holds/${id}/deny`, headers: bearer("shopper") });

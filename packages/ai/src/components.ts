@@ -5,8 +5,9 @@
 
 import { z } from "zod";
 import { CURRENCIES, PolicyV1, numberToCents, type Check, type ProductFacts, type ResolvedCart } from "@witness/core";
-import type { AiResult, LlmClient } from "./llm.ts";
+import { promptRef, type AiResult, type LlmClient } from "./llm.ts";
 import { PROMPTS } from "./prompts.ts";
+import { MANIPULATION_V1, assess, type Conversation } from "./manipulation.ts";
 
 export const THRESHOLDS = { injection: 0.5, semantic: 0.8, integrity: 0.8, intentReview: 0.6 } as const;
 
@@ -206,11 +207,41 @@ export async function verifyListing(ai: LlmClient, policy: PolicyV1, facts: Prod
  * If deterministic checks deferred to a semantic judgement (category), the matching implicit
  * constraint is added, e.g. "is a trail-running shoe".
  */
-export async function aiScreen(ai: LlmClient, policy: PolicyV1, cart: ResolvedCart, facts: Map<string, ProductFacts>, deterministic: Check[] = []): Promise<Check[]> {
+export async function aiScreen(
+  ai: LlmClient,
+  policy: PolicyV1,
+  cart: ResolvedCart,
+  facts: Map<string, ProductFacts>,
+  deterministic: Check[] = [],
+  conversation?: Conversation,
+): Promise<Check[]> {
   const lineFacts = cart.lines.map((l) => facts.get(l.product_id)).filter((f): f is ProductFacts => Boolean(f));
   const implicit = deterministic.some((c) => c.defers_to === "ai.soft:category") && policy.category ? [{ id: "category", text: `is a ${policy.category}` }] : [];
-  const [injection, soft] = await Promise.all([checkInjection(ai, lineFacts), verifyListing(ai, policy, lineFacts, implicit)]);
-  return [injection, ...soft];
+  // A Second Key transfer has no merchant listing to verify (the platform wrote the payee record), so
+  // only merchant products get listing checks. Stopgap until transfers are their own request type.
+  const listings = lineFacts.filter((f) => !(f.source === "fixture" && f.category?.startsWith("Transfers >")));
+  const [injection, soft, manipulation] = await Promise.all([
+    checkInjection(ai, lineFacts),
+    listings.length ? verifyListing(ai, policy, listings, implicit) : [],
+    conversation ? checkManipulation(ai, conversation) : null,
+  ]);
+  return [injection, ...soft, ...(manipulation ? [manipulation] : [])];
+}
+
+/**
+ * Second Key: was the payer being manipulated into this payment? Never "fail": a flagged payment is
+ * held for the payer's trusted contact to decide, so anything but a grounded, confident "proceed"
+ * is "unknown" (HOLD). The detail carries only quotes verified to appear in the conversation.
+ */
+export async function checkManipulation(ai: LlmClient, conversation: Conversation): Promise<Check> {
+  const a = await assess(ai, conversation);
+  const meta = { kind: "ai" as const, model: a.model ?? "none", prompt_version: promptRef(MANIPULATION_V1) };
+  if (!a.ok) return { id: "ai.manipulation", result: "unknown", detail: `manipulation check unavailable (${a.failure}); held for review`, ...meta };
+  const evidence = a.grounded.slice(0, 4).map((g) => `${g.tactic.replace(/_/g, " ")}: "${g.quote.slice(0, 120)}" (${g.speaker.slice(0, 40)})`);
+  const summary = evidence.length ? `; ${evidence.join("; ")}` : "";
+  if (a.intervention === "PROCEED") return { id: "ai.manipulation", result: "pass", detail: `no manipulation found (risk ${a.risk})${summary}`, ...meta };
+  const what = a.intervention === "HOLD_FOR_TRUSTED_CONTACT" ? "hold for trusted contact" : "verify before paying";
+  return { id: "ai.manipulation", result: "unknown", detail: `${what}: manipulation risk ${a.risk}${summary}`, ...meta };
 }
 
 /**

@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { evaluateScreen } from "@witness/ai";
 import { FixtureCatalog } from "@witness/catalog";
-import { SCENARIOS, demoPolicy } from "@witness/engine";
+import { SCENARIOS, demoPolicy, transferPolicy } from "@witness/engine";
 import { harnessAi } from "../test-support/fake-ai.ts";
 
 describe("eval function agrees with the engine", () => {
@@ -12,7 +12,10 @@ describe("eval function agrees with the engine", () => {
     test(name, async () => {
       const now = new Date("2026-10-12T12:00:00Z");
       const { facts } = await new FixtureCatalog().getProducts([s.product]);
-      const r = await evaluateScreen(harnessAi(), demoPolicy(now), { intent_id: "int", retailer: "rei.com", lines: [{ product_id: s.product, quantity: 1 }] }, facts, { now });
+      const lines = [{ product_id: s.product, quantity: 1 }];
+      const r = s.transfer
+        ? await evaluateScreen(harnessAi(), transferPolicy(now), { intent_id: "int", retailer: "secondkey.test", lines, conversation: s.transfer.conversation }, facts, { now })
+        : await evaluateScreen(harnessAi(), demoPolicy(now), { intent_id: "int", retailer: "rei.com", lines }, facts, { now });
       // The cart swap happens after screening (in PayPal's order), so screening says CAPTURE.
       expect(r.outcome).toBe(s.expected === "VOID" ? "CAPTURE" : s.expected);
     });

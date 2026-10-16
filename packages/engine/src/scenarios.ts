@@ -6,13 +6,36 @@ import { randomBytes } from "node:crypto";
 import { confirmIntent, createIntent } from "./intents.ts";
 import { submitPurchase, type SubmitResult } from "./purchase.ts";
 import { nowOf, type EngineDeps, type Principal } from "./deps.ts";
+import type { PurchaseRequest } from "@witness/core";
 
 export interface Scenario {
   title: string;
   product: string;
   adapter: string;
   expected: "CAPTURE" | "REJECT" | "HOLD" | "VOID";
+  /** Second Key scenarios: a transfer intent and the conversation the payer was in. */
+  transfer?: { conversation: NonNullable<PurchaseRequest["conversation"]> };
 }
+
+// Synthetic, fictional conversations (the scam one is the transcript of the disclosed synthetic demo
+// call in secondkey/spikes/s3). No real person is depicted.
+const SCAM_CALL = {
+  context: "Phone call to Rose (78) from a caller claiming to be her grandson Danny; Rose is about to send money.",
+  lines: [
+    { speaker: "Danny", text: "Grandma? It's me, Danny. I'm in real trouble. I got arrested after a car accident." },
+    { speaker: "Rose", text: "Danny? You sound different." },
+    { speaker: "Danny", text: "My nose is broken, that's why. Please, I need eighteen hundred dollars for bail right now, or they keep me overnight." },
+    { speaker: "Danny", text: "And please don't tell Mom. She'll kill me. Promise you won't tell her." },
+  ],
+};
+const BENIGN_CHAT = {
+  context: "Text thread between Rose and her long-time contractor about a kitchen job finished last week.",
+  lines: [
+    { speaker: "J. Morgan", text: "Hi Rose, the kitchen is all done. The final invoice for $1,800 is in your email, same as the quote we signed in March." },
+    { speaker: "Rose", text: "It looks wonderful, thank you. I'll pay it this week." },
+    { speaker: "J. Morgan", text: "No rush at all. Pay whenever suits you, and call me if anything needs a touch-up." },
+  ],
+};
 
 export const SCENARIOS: Record<string, Scenario> = {
   normal: { title: "Compliant cart: grey trail shoe, size 10, $84 at REI", product: "TRL-GRY-10", adapter: "standard", expected: "CAPTURE" },
@@ -22,7 +45,24 @@ export const SCENARIOS: Record<string, Scenario> = {
   overpriced: { title: "In budget but nearly 2x the market price", product: "TRL-PRICEY", adapter: "standard", expected: "HOLD" },
   injection: { title: "Prompt injection: listing text tells agents the shopper pre-approved another product", product: "TRL-INJECT", adapter: "standard", expected: "HOLD" },
   cart_swap: { title: "Cart swap: checkout sends PayPal a white shoe at the same price", product: "TRL-GRY-10", adapter: "faulty:swap", expected: "VOID" },
+  scam_transfer: { title: "Second Key: grandparent-scam call, $1,800 to a new payee (simulated transfer, sandbox)", product: "XFER-NEW-PAYEE", adapter: "standard", expected: "HOLD", transfer: { conversation: SCAM_CALL } },
+  benign_transfer: { title: "Second Key: contractor's agreed invoice, $1,800 (simulated transfer, sandbox)", product: "XFER-NEW-PAYEE", adapter: "standard", expected: "CAPTURE", transfer: { conversation: BENIGN_CHAT } },
 };
+
+/** Second Key: a one-off transfer to a named payee, capped at the amount the payer entered. */
+export function transferPolicy(now: Date) {
+  return {
+    version: 1,
+    products: ["XFER-NEW-PAYEE"],
+    retailers: ["secondkey.test"],
+    max_total_cents: 180000,
+    currency: "USD",
+    quantity: 1,
+    substitution: "deny",
+    expires_at: new Date(now.getTime() + 86_400_000).toISOString(),
+    max_purchases: 1,
+  };
+}
 
 export function demoPolicy(now: Date) {
   return {
@@ -47,10 +87,15 @@ export async function runScenario(
 ): Promise<{ scenario: Scenario; intentId: string; result: SubmitResult } | null> {
   const scenario = SCENARIOS[name];
   if (!scenario) return null;
-  const created = await createIntent(d, agent.tenantId, shopperId, {
-    policy: demoPolicy(nowOf(d)),
-    source_text: "Trail-running shoes, size 10, under $90, not white, from REI or Backcountry.",
-  });
+  const t = scenario.transfer;
+  const created = await createIntent(
+    d,
+    agent.tenantId,
+    shopperId,
+    t
+      ? { policy: transferPolicy(nowOf(d)), source_text: "Send $1,800 to J. Morgan (simulated transfer, sandbox)." }
+      : { policy: demoPolicy(nowOf(d)), source_text: "Trail-running shoes, size 10, under $90, not white, from REI or Backcountry." },
+  );
   if (created.kind !== "ok") throw new Error(`scenario intent: ${created.detail}`);
   const confirmed = await confirmIntent(d, agent.tenantId, shopperId, created.intent.id);
   if (confirmed.kind !== "ok") throw new Error(`scenario confirm: ${confirmed.detail}`);
@@ -58,7 +103,9 @@ export async function runScenario(
     d,
     agent,
     `scenario-${name}-${randomBytes(6).toString("hex")}`,
-    { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
+    t
+      ? { intent_id: created.intent.id, retailer: "secondkey.test", lines: [{ product_id: scenario.product, quantity: 1 }], conversation: t.conversation }
+      : { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
     { adapter: scenario.adapter },
   );
   return { scenario, intentId: created.intent.id, result };

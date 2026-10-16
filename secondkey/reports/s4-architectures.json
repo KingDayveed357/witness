@@ -1,0 +1,121 @@
+{
+  "ran_at": "2026-10-16T19:53:54.511Z",
+  "environment": "PayPal SANDBOX (api-m.sandbox.paypal.com)",
+  "payer": "vaulted sandbox buyer (Witness demo shopper)",
+  "steps": [
+    {
+      "step": "A.create_order_third_party_payee_unknown_email",
+      "error": "create-order: HTTP 422 PAYEE_ACCOUNT_INVALID Payee account specified is invalid. Please check the `payee.email_address` or `payee.merchant_id` specified and try again. Ensure that either  `payee.merchant_id` or `payee.email_address` is specified.",
+      "auth_status": null
+    },
+    {
+      "step": "B1.create_and_authorize_1800",
+      "http": 201,
+      "ok": true,
+      "debug_id": "f764212b8427c",
+      "issue": null,
+      "order_id": "05R831061F6758513",
+      "order_status": "COMPLETED",
+      "auth_status": "CREATED"
+    },
+    {
+      "step": "B2.get_authorization_while_held",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f460544926eba",
+      "issue": null,
+      "auth_status": "CREATED",
+      "amount": "1800.00",
+      "expiration_time": "2026-11-14T19:53:28Z"
+    },
+    {
+      "step": "B3.get_order_no_capture",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f552919e80504",
+      "issue": null,
+      "order_status": "COMPLETED",
+      "captures": 0
+    },
+    {
+      "step": "B4.void_on_deny",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f91717449e9a7",
+      "issue": null
+    },
+    {
+      "step": "B5.void_retry_same_request_id",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f4388385eb87a",
+      "issue": null
+    },
+    {
+      "step": "B6.void_again_new_request_id",
+      "http": 422,
+      "ok": false,
+      "debug_id": "f850407760b3f",
+      "issue": "PREVIOUSLY_VOIDED"
+    },
+    {
+      "step": "B7.capture_after_void_must_fail",
+      "http": 422,
+      "ok": false,
+      "debug_id": "f116792316048",
+      "issue": "AUTHORIZATION_VOIDED"
+    },
+    {
+      "step": "B8.independent_get_after_deny",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f439187ed9158",
+      "issue": null,
+      "auth_status": "VOIDED"
+    },
+    {
+      "step": "B9.order_after_deny",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f439187eb69ad",
+      "issue": null,
+      "order_status": "COMPLETED",
+      "captures": 0,
+      "auth_status": "VOIDED"
+    },
+    {
+      "step": "B10.create_and_authorize_25",
+      "http": 201,
+      "ok": true,
+      "debug_id": "f9924940e0216",
+      "issue": null,
+      "auth_status": "CREATED"
+    },
+    {
+      "step": "B11.capture_on_approve",
+      "http": 201,
+      "ok": true,
+      "debug_id": "f3108834a6c82",
+      "issue": null,
+      "capture_status": "COMPLETED",
+      "amount": "25.00"
+    },
+    {
+      "step": "B12.payout_to_recipient_email",
+      "http": 201,
+      "ok": true,
+      "debug_id": "f211438b75b5d",
+      "issue": null,
+      "batch_status": "PENDING"
+    },
+    {
+      "step": "B13.get_payout_batch",
+      "http": 200,
+      "ok": true,
+      "debug_id": "f65578255fbc2",
+      "issue": null,
+      "batch_status": "PROCESSING",
+      "item_status": "PENDING"
+    }
+  ]
+}

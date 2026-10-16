@@ -6,3 +6,4 @@ export { FakeProvider, FakeLlm } from "./fake.ts";
 export { PROMPTS, loadPrompt } from "./prompts.ts";
 export * from "./components.ts";
 export * from "./evaluate.ts";
+export * from "./manipulation.ts";

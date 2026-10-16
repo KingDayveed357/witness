@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- S3 manual check: does the browser's speech recognition transcribe the disclosed synthetic call
+     from a real microphone, and how fast? Open in normal Chrome (not automation), click Start, play
+     call.wav from a speaker near the mic, then copy the result line into the sprint report.
+     Runs entirely in the page; nothing is sent anywhere except the browser's own speech service. -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S3 live check</title>
+<style>
+  :root { color-scheme: light dark; font: 15px/1.5 system-ui, sans-serif; }
+  body { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  button { font: inherit; padding: 8px 16px; margin-right: 8px; }
+  #final { white-space: pre-wrap; border: 1px solid #8884; border-radius: 8px; padding: 12px; min-height: 6em; }
+  #interim { opacity: .6; }
+  code { word-break: break-all; }
+</style>
+<h1>S3 live check: browser speech recognition</h1>
+<p>Audio: <code>call.wav</code>, a 29.7 s call with synthetic voices (fictional "Danny" and "Rose"). Click Start, play the file from a speaker, wait for it to finish, then click Stop.</p>
+<p><button id="start">Start</button><button id="stop" disabled>Stop</button><span id="status"></span></p>
+<div id="final"></div>
+<p id="interim"></p>
+<p><strong>Result:</strong> <code id="result">not run</code></p>
+<script>
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const $ = (id) => document.getElementById(id);
+  const out = { browser: navigator.userAgent, supported: !!R, first_word_ms: null, last_final_ms: null, finals: [], errors: [] };
+  let r, t0;
+  $("start").onclick = () => {
+    if (!R) { $("status").textContent = " Not supported in this browser."; return; }
+    r = new R(); r.lang = "en-US"; r.continuous = true; r.interimResults = true;
+    t0 = performance.now();
+    r.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const ms = Math.round(performance.now() - t0);
+        if (out.first_word_ms === null) out.first_word_ms = ms;
+        if (e.results[i].isFinal) { out.finals.push(e.results[i][0].transcript.trim()); out.last_final_ms = ms; }
+        else interim += e.results[i][0].transcript;
+      }
+      $("final").textContent = out.finals.join("\n");
+      $("interim").textContent = interim;
+    };
+    r.onerror = (e) => { out.errors.push(e.error); $("status").textContent = " error: " + e.error; };
+    r.onend = () => { $("start").disabled = false; $("stop").disabled = true; show(); };
+    r.start();
+    $("start").disabled = true; $("stop").disabled = false; $("status").textContent = " listening…";
+  };
+  $("stop").onclick = () => r && r.stop();
+  function show() {
+    $("status").textContent = " stopped";
+    $("result").textContent = JSON.stringify({ ...out, transcript: out.finals.join(" ") });
+  }
+</script>
+</html>
