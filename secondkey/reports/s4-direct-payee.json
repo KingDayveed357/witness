@@ -1,11 +1,11 @@
 {
-  "ran_at": "2026-10-17T05:11:50.418Z",
+  "ran_at": "2026-10-17T06:27:38.570Z",
   "environment": "PayPal SANDBOX",
   "steps": [
     {
       "step": "F7.create_order_1_payee_recipient",
       "http": 200,
-      "debug_id": "ca4bcc8cddb74",
+      "debug_id": "f165293a332cd",
       "issue": null,
       "order_status": "PAYER_ACTION_REQUIRED",
       "payee_merchant_id_resolved": false
@@ -13,7 +13,7 @@
     {
       "step": "F7.create_order_2_payee_recipient",
       "http": 200,
-      "debug_id": "ca4bcc8d27fe3",
+      "debug_id": "f93426722600c",
       "issue": null,
       "order_status": "PAYER_ACTION_REQUIRED",
       "payee_merchant_id_resolved": false
@@ -21,34 +21,63 @@
     {
       "step": "F7.order_1_after_payer_action",
       "http": 200,
-      "debug_id": "f735505e82be3",
+      "debug_id": "f173651cdcb99",
       "issue": null,
-      "order_status": "PAYER_ACTION_REQUIRED"
+      "order_status": "APPROVED"
     },
     {
       "step": "F7.authorize_1",
-      "http": 422,
-      "debug_id": "f370918578955",
-      "issue": "ORDER_NOT_APPROVED",
-      "order_status": null,
-      "auth_status": null,
+      "http": 201,
+      "debug_id": "f6066192b70c7",
+      "issue": null,
+      "order_status": "COMPLETED",
+      "auth_status": "CREATED",
       "payee_merchant_id_resolved": false
+    },
+    {
+      "step": "F7.void_on_deny_by_platform",
+      "http": 403,
+      "debug_id": "f7465555efbb7",
+      "issue": "PERMISSION_DENIED"
+    },
+    {
+      "step": "F7.get_after_void",
+      "http": 200,
+      "debug_id": "f640532839f84",
+      "issue": null,
+      "auth_status": "CREATED"
     },
     {
       "step": "F7.order_2_after_payer_action",
       "http": 200,
-      "debug_id": "f301129d78f53",
+      "debug_id": "f512030194587",
       "issue": null,
-      "order_status": "PAYER_ACTION_REQUIRED"
+      "order_status": "APPROVED"
     },
     {
       "step": "F7.authorize_2",
-      "http": 422,
-      "debug_id": "f67242031c7d7",
-      "issue": "ORDER_NOT_APPROVED",
-      "order_status": null,
-      "auth_status": null,
+      "http": 201,
+      "debug_id": "f512030eb78f4",
+      "issue": null,
+      "order_status": "COMPLETED",
+      "auth_status": "CREATED",
       "payee_merchant_id_resolved": false
+    },
+    {
+      "step": "F7.capture_on_approve_by_platform",
+      "http": 201,
+      "debug_id": "f642734556448",
+      "issue": null,
+      "capture_status": "COMPLETED"
+    },
+    {
+      "step": "F7.get_capture",
+      "http": 200,
+      "debug_id": "f102775382ef4",
+      "issue": null,
+      "capture_status": "COMPLETED",
+      "payee_is_recipient": true,
+      "net_to_payee": "29.43"
     }
   ]
 }

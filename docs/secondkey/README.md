@@ -5,7 +5,7 @@
 | Deliverable | Status | Document |
 |---|---|---|
 | 1. Transfer-intent architecture + implementation | **Done**: transfers are their own intent/request type; shared policy and manipulation check can't be bypassed | [ADR-0016](../decisions/0016-transfer-intents.md) |
-| 2. PayPal flow comparison | **Partial**: platform-held + payout proven (payout SUCCESS to the new personal account); direct payee untested past order creation; multiparty needs partner approval | [06-paypal-flows.md](06-paypal-flows.md) |
+| 2. PayPal flow comparison | **Partial**: platform-held + payout proven (payout SUCCESS to the new personal account); direct payee can be captured but **not voided** (403), so it cannot enforce a denial; multiparty needs partner approval | [06-paypal-flows.md](06-paypal-flows.md) |
 | 3. Trusted-contact security | **Done**: one enforced 30-min link lifetime, separate from the 72 h hold; idempotent decisions | [ADR-0017](../decisions/0017-trusted-contact-links.md), [07](07-trusted-contact-security.md) |
 | 4. Audio quality + fallback | **Partial**: Chrome on-device transcription verified (noisy); real mic unverified; prepared transcript kept | [08-audio-quality.md](08-audio-quality.md) |
 | 5. Reproducible E2E | **Done**: 28/28 live, direct PayPal GETs | [09-e2e-procedure.md](09-e2e-procedure.md) |

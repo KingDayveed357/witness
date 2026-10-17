@@ -5,7 +5,7 @@
 | Gate | Status | Evidence |
 |---|---|---|
 | A. Transfer intent architecture | **PASS** | [ADR-0016](../decisions/0016-transfer-intents.md). Transfers are their own intent and request type; the catalog fixture and the category-string stopgap are gone. The shared deterministic policy and manipulation check can't be bypassed (kind-mismatch, required-check guard). 17 DB + 7 core + 4 AI regression tests |
-| B. PayPal payment flow | **PARTIAL** | Platform-held + Payouts proven, including a payout **SUCCESS** to the new personal account. Direct-payee order accepted, but authorize/void/capture untested (payer approval not completed). Multiparty refused without partner status ([06](06-paypal-flows.md)) |
+| B. PayPal payment flow | **PARTIAL** | Platform-held + Payouts proven, including a payout **SUCCESS** to the new personal account. Direct payee: authorize and capture work (recipient received $29.43 net), but void is refused 403, so a denial can't be enforced. Multiparty refused without partner status ([06](06-paypal-flows.md)) |
 | C. Trusted-contact security | **PASS** | [ADR-0017](../decisions/0017-trusted-contact-links.md): one enforced 30-minute link lifetime, separate from the 72 h hold; idempotent retries; 11 DB tests + live checks ([07](07-trusted-contact-security.md)) |
 | D. Audio evidence | **PARTIAL** | Browser transcription now **verified** (Chrome on-device + `start(track)`) but noisy (WER 53%; amount misheard). Real microphone still unverified. Prepared-transcript fallback kept ([08](08-audio-quality.md)) |
 | E. Reproducible E2E | **PASS** | 28/28 live with direct PayPal GETs ([09](09-e2e-procedure.md)) |
@@ -20,7 +20,6 @@
 | 4 | Medium | **Trusted contact has no identity** (anyone holding the link) | Fine for the demo; weak for a product claim | Invite flow + verified channel (M2) | Claude |
 | 5 | Medium | **Not yet re-verified on Render** (all runs local) | Judges use the deployed URL | Deploy the branch to the Render sandbox and rerun `acceptance.ts` against it, after Dave authorises a deploy | Dave (authorise), Claude |
 | 6 | Medium | **AG Studio licence for judging** | The watermark is acceptable only for local testing per AG's docs. The Studio licence covers only its built-in grid/chart widgets; AG Grid Enterprise in custom widgets needs its own licence | Request the 45-day AG Studio trial key no earlier than about Nov 1, so it covers judging to Dec 15, or get a sponsor key. Build the Protection Desk grid on AG Grid **Community** (MIT) | Dave |
-| 7 | Low | Direct-payee authorize/void/capture untested (A2) | None for the demo (B is the plan) | Approve the pending orders, then `direct-payee.ts finish` | Dave + Claude |
 | 8 | Low | No rate limit on `/v1/holds/*` | None (192-bit tokens) | Add a per-IP limiter before a public launch | Claude |
 | 9 | Low | Raw conversation stored in `purchases.request` | Synthetic data only, for now | Store hash + grounded quotes; retention policy | Claude |
 
