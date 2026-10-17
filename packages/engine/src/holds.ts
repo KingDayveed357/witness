@@ -16,6 +16,7 @@ import { QUEUES, enqueue, recordChecks, recordDecision, schema, transition, with
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { nowOf, type EngineDeps } from "./deps.ts";
 import { issueApproval } from "./purchase.ts";
+import { getPayout, livePayout, maskEmail, type LivePayout, type PayoutView } from "./payouts.ts";
 
 const { purchases, holds, intents, tenants, shoppers, checks: checksT } = schema;
 
@@ -42,10 +43,13 @@ export interface HoldView {
   /** What the reviewer needs to decide (Second Key): who, to whom, why, and the evidence. */
   kind: "shopping" | "transfer";
   payer_name: string | null;
-  payee: { name: string; first_payment: boolean } | null;
+  payee: { name: string; first_payment: boolean; email?: string } | null;
   purpose: string | null;
   conversation: { context: string; lines: { speaker: string; text: string }[] } | null;
   concerns: { check_id: string; kind: string; detail: string; evidence: EvidenceItem[] }[];
+  /** Recipient payout after an approved, captured transfer (null if none was made or configured). */
+  payout: PayoutView | null;
+  payout_configured: boolean;
 }
 
 async function load(d: EngineDeps, purchaseId: string) {
@@ -60,7 +64,7 @@ async function load(d: EngineDeps, purchaseId: string) {
     .from(checksT)
     .where(and(eq(checksT.purchaseId, purchaseId), eq(checksT.phase, "SCREEN"), eq(checksT.result, "unknown")))
     .orderBy(asc(checksT.id));
-  return { p, h, i, payerName: shopper?.name ?? null, concerns };
+  return { p, h, i, payerName: shopper?.name ?? null, concerns, payout: await getPayout(d, purchaseId) };
 }
 type Ctx = NonNullable<Awaited<ReturnType<typeof load>>>;
 
@@ -68,7 +72,7 @@ function view(ctx: Ctx, viaLink = false): HoldView {
   const { p, h, i } = ctx;
   const cart = p.cart as ResolvedCart | null;
   const req = (p.request ?? {}) as { kind?: string; conversation?: HoldView["conversation"] };
-  const policy = (i.policy ?? {}) as { kind?: string; payee?: { name: string; first_payment: boolean }; purpose?: string };
+  const policy = (i.policy ?? {}) as { kind?: string; payee?: { name: string; first_payment: boolean; email?: string }; purpose?: string };
   return {
     purchase_id: p.id,
     state: p.state,
@@ -81,10 +85,12 @@ function view(ctx: Ctx, viaLink = false): HoldView {
     link_expires_at: viaLink ? (h?.tokenExpiresAt?.toISOString() ?? null) : null,
     kind: req.kind === "transfer" ? "transfer" : "shopping",
     payer_name: ctx.payerName,
-    payee: policy.kind === "transfer" && policy.payee ? { name: policy.payee.name, first_payment: policy.payee.first_payment } : null,
+    payee: policy.kind === "transfer" && policy.payee ? { name: policy.payee.name, first_payment: policy.payee.first_payment, ...(policy.payee.email ? { email: maskEmail(policy.payee.email) } : {}) } : null,
     purpose: policy.kind === "transfer" ? (policy.purpose ?? null) : null,
     conversation: req.conversation ?? null,
     concerns: ctx.concerns.map((c) => ({ check_id: c.checkId, kind: c.kind, detail: c.detail, evidence: (c.evidence as EvidenceItem[] | null) ?? [] })),
+    payout: ctx.payout,
+    payout_configured: policy.kind === "transfer" && Boolean(policy.payee?.email),
   };
 }
 
@@ -196,6 +202,7 @@ export interface HoldVerification {
   order_status: string | null;
   authorizations: { id: string; status: string; value: string }[];
   captures: { id: string; status: string; value: string }[];
+  payout: LivePayout | null;
 }
 
 /**
@@ -214,7 +221,14 @@ export async function verifyHold(d: EngineDeps, purchaseId: string, actor: HoldA
     const row = (x: { id?: unknown; status?: unknown; amount?: { value?: unknown } }) => ({ id: String(x.id), status: String(x.status), value: String(x.amount?.value ?? "") });
     return {
       kind: "ok",
-      value: { fetched_at: nowOf(d).toISOString(), debug_id: r.debugId ?? null, order_status: r.data?.status ?? null, authorizations: (pu.payments?.authorizations ?? []).map(row), captures: (pu.payments?.captures ?? []).map(row) },
+      value: {
+        fetched_at: nowOf(d).toISOString(),
+        debug_id: r.debugId ?? null,
+        order_status: r.data?.status ?? null,
+        authorizations: (pu.payments?.authorizations ?? []).map(row),
+        captures: (pu.payments?.captures ?? []).map(row),
+        payout: await livePayout(d, ctx.payout),
+      },
     };
   } catch (e) {
     if (e instanceof PayPalNetworkError || e instanceof PayPalHttpError) return bad(502, "Couldn't reach PayPal to verify; try again");

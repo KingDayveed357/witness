@@ -12,6 +12,8 @@ export const QUEUES = {
   holdTimeout: "witness-hold-timeout",
   webhook: "witness-webhook",
   sweep: "witness-reconcile-sweep",
+  payout: "witness-payout",
+  payoutCheck: "witness-payout-check",
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 

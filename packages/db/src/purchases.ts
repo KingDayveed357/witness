@@ -86,7 +86,7 @@ export async function recordDecision(tx: Tx, purchaseId: string, outcome: Outcom
   await tx.db.insert(decisions).values({ purchaseId, outcome, reasons, decidedBy });
 }
 
-export type JournalOp = "create-order" | "capture" | "void";
+export type JournalOp = "create-order" | "capture" | "void" | "payout";
 
 /** Write the intent to call PayPal before calling it, so a crash mid-call can be reconciled. */
 export async function journalStart(tx: Tx, a: { purchaseId: string; op: JournalOp; requestId: string; request?: unknown }): Promise<number> {

@@ -5,6 +5,7 @@ import { OPEN_AUTHORIZATION_STATES } from "@witness/core";
 import { QUEUES, dbOf, enqueue, schema, withTx, type PurchaseJob, type QueueName, type WebhookJob } from "@witness/db";
 import { logOf, nowOf } from "@witness/engine";
 import { executeCapture, executeVoid, holdTimeout, reconcile, type ExecutorDeps } from "./executor.ts";
+import { checkPayout, executePayout, sweepPayouts, type PayoutJob } from "./payout.ts";
 
 const { purchases, webhookEvents } = schema;
 
@@ -56,6 +57,12 @@ export async function handleJob(d: ExecutorDeps, queue: QueueName, data: unknown
     case QUEUES.void:
       result = await executeVoid(d, data as PurchaseJob);
       break;
+    case QUEUES.payout:
+      result = await executePayout(d, data as PayoutJob);
+      break;
+    case QUEUES.payoutCheck:
+      result = await checkPayout(d, data as PayoutJob);
+      break;
     case QUEUES.reconcile:
       result = await reconcile(d, data as PurchaseJob);
       break;
@@ -66,7 +73,7 @@ export async function handleJob(d: ExecutorDeps, queue: QueueName, data: unknown
       result = await processWebhook(d, data as WebhookJob);
       break;
     case QUEUES.sweep:
-      result = `swept ${await sweep(d)}`;
+      result = `swept ${await sweep(d)}; payouts ${await sweepPayouts(d)}`;
       break;
     default:
       throw new Error(`unknown queue ${queue}`);

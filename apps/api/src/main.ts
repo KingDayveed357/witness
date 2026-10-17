@@ -34,6 +34,7 @@ const app = buildApp({
       : new UnavailableProvider(),
     defaultRetailers: cfg.WITNESS_DEFAULT_RETAILERS.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
     holdLinkMs: cfg.WITNESS_HOLD_LINK_TTL_MINUTES * 60_000,
+    ...(cfg.SECONDKEY_DEMO_RECIPIENT_EMAIL ? { demoRecipientEmail: cfg.SECONDKEY_DEMO_RECIPIENT_EMAIL } : {}),
   },
   webhookId: cfg.PAYPAL_WEBHOOK_ID,
   demoShopperId: cfg.WITNESS_DEMO_SHOPPER_ID,

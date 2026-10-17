@@ -89,7 +89,7 @@ There is no global dashboard. Each person lands where their job is.
 | "Your money is safe" | "$1,800 is reserved, not sent. Nothing has been taken" (only when PayPal shows authorization CREATED and 0 captures) |
 | "Cancelled" on tap | "Your decision is recorded. Cancelling with PayPal…" until `VOIDED`, then "PayPal confirms: cancelled, $0 taken" |
 | "Second Key holds your money" | "PayPal is holding an authorization. Second Key decides whether it is completed or released" |
-| "Sent to J. Morgan" on approve | "Payment completed to the Second Key demo merchant (sandbox). A payout to the recipient is a separate step, not part of this flow" |
+| "Sent to J. Morgan" on approve | "PayPal shows $1,800 captured", then, only when the payout item is SUCCESS, "PayPal shows $1,800 paid out to J. Morgan" (ADR-0018) |
 | Confidence percentages | Words: "clear", "unclear in places" |
 | Quotes from audio as exact words | "Heard as (automatic transcript)" when the source is a machine transcript |
 
@@ -105,7 +105,7 @@ Every screen carries a quiet legend: **● Live sandbox** marks a state read fro
 | Approve → re-check → executor capture → PayPal CAPTURED | **Verified** | Payer, Reviewer, Desk |
 | Benign transfer → captured without review | **Verified** | Payer |
 | AI agent: listing injection → HOLD → same review → void | **Verified** | Home (agent demo), Reviewer, Desk |
-| Payout to the recipient after capture | **Proven in a spike only, not in the product flow** | Shown as "not part of this flow", never as done |
+| Payout to the recipient after capture | **Verified** (added after this blueprint, ADR-0018) | Payer, Reviewer, Desk: shown as a separate step, "paid out" only on a SUCCESS item |
 | SMS/email delivery of the link | **Not built** | Link shown on screen, labelled "demo delivery" |
 | Live microphone transcription | **Not proven**; prepared transcript used | Labelled "prepared transcript of a synthetic call" |
 | Payer cancelling their own hold | Engine supports it (signed-in shopper); not exposed in this slice | Not shown |

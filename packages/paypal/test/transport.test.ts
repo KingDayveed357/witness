@@ -47,7 +47,15 @@ describe("money movement isolation (ADR-0005)", () => {
     await expect(t.send("POST", "/v2/payments/authorizations/A1/capture", { requestId: "r", body: {} })).rejects.toThrow(MoneyMovementForbidden);
     await expect(t.send("POST", "/v2/payments/authorizations/A1/void", { requestId: "r", body: {} })).rejects.toThrow(MoneyMovementForbidden);
     await expect(t.send("POST", "/v2/payments/captures/C1/refund", { requestId: "r", body: {} })).rejects.toThrow(MoneyMovementForbidden);
+    await expect(t.send("POST", "/v1/payments/payouts", { requestId: "r", body: {} })).rejects.toThrow(MoneyMovementForbidden);
     expect(calls).toHaveLength(0); // refused before any network traffic, including the token call
+  });
+
+  test("reading a payout batch is not money movement; creating one is executor-only", async () => {
+    const { impl } = fakeFetch(() => ({ status: 200, body: { batch_header: { batch_status: "SUCCESS" } } }));
+    const c = new PayPalClient({ ...creds, fetchImpl: impl });
+    expect((await c.getPayoutBatch("B1")).data.batch_header.batch_status).toBe("SUCCESS");
+    expect((c as unknown as Record<string, unknown>)["createPayout"]).toBeUndefined();
   });
 
   test("the public client exposes no capture or void method", () => {

@@ -20,7 +20,7 @@ const rec = (step: string, ok: boolean, detail?: string) => {
   console.log(`${ok ? "PASS" : "FAIL"} ${step}${detail ? ` (${detail})` : ""}`);
 };
 
-const browser = await puppeteer.launch({ executablePath: EDGE, headless: true });
+const browser = await puppeteer.launch({ executablePath: EDGE, headless: true, protocolTimeout: 180_000 });
 const desktop = async () => {
   const p = await browser.newPage();
   await p.setViewport({ width: 1440, height: 900, deviceScaleFactor: 1 });
@@ -96,8 +96,9 @@ try {
   await clickText(pay, "Send $1,800.00");
   await waitText(pay, "Nothing unusual was found", 90_000);
   await waitText(pay, "captured: the payment is complete");
+  await waitText(pay, "PayPal shows $1,800.00 paid out to", 150_000); // the live payout read, not explanatory copy
   await shot(pay, "08-payer-benign-sent");
-  rec("payer: contractor invoice completed without review, capture verified", true);
+  rec("payer: contractor invoice completed without review, capture verified, then the payout to the recipient shown as paid by PayPal", true);
 
   // 6. Agent: instruction in the product page → paused; listing quote shown
   const agent = await desktop();

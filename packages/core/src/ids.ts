@@ -18,7 +18,7 @@ export function uuidv5(name: string, namespace: string): string {
 /** Fixed namespace for Witness-derived IDs. Changing it would change every request ID. */
 export const WITNESS_NAMESPACE = "1b4e28ba-2fa1-5d6e-9c3b-7a1f00c0ffee";
 
-export type MoneyOp = "create-order" | "capture" | "void";
+export type MoneyOp = "create-order" | "capture" | "void" | "payout";
 
 export const paypalRequestId = (subjectId: string, op: MoneyOp) => uuidv5(`${op}:${subjectId}`, WITNESS_NAMESPACE);
 

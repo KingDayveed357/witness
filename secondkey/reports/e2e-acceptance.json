@@ -1,5 +1,5 @@
 {
-  "ran_at": "2026-10-17T05:36:17.195Z",
+  "ran_at": "2026-10-17T07:57:50.352Z",
   "api": "http://127.0.0.1:4000",
   "environment": "local API + worker, PayPal SANDBOX, simulated transfer (platform-held authorization)",
   "results": [
@@ -8,8 +8,8 @@
       "name": "1. audio ingested and transcribed on-device (System.Speech, disclosed synthetic call)",
       "pass": true,
       "segments": 12,
-      "asr_ms": 3519,
-      "wall_ms": 9453,
+      "asr_ms": 4325,
+      "wall_ms": 8835,
       "transcript": "Grandma city Denny I'm in real trouble a got arrested after a car accident Denny a sound different light noses broken that's why please I need $1800 for bail right now they keep me overnight and please don't tell of Il killed a promise you won't tell her"
     },
     {
@@ -17,7 +17,7 @@
       "name": "transfer request (kind=transfer, ADR-0016) submitted through the shared engine",
       "pass": true,
       "status": 202,
-      "purchase": "pur_JFFPve9_ZvIfnDCB"
+      "purchase": "pur_TjOO-wvDwnQMjXig"
     },
     {
       "flow": "human",
@@ -33,7 +33,7 @@
         "Grandma",
         "a sound different",
         "please I need $1800 for bail right now",
-        "please don't tell of"
+        "promise you won't tell her"
       ],
       "grounded": "4/4"
     },
@@ -44,7 +44,7 @@
       "state": "HELD",
       "check": {
         "result": "unknown",
-        "detail": "hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"please don't tell of\" (Call audio (speaker not identified))",
+        "detail": "hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"promise you won't tell her\" (Call audio (speaker not identified))",
         "kind": "ai"
       }
     },
@@ -60,7 +60,7 @@
         "Transfer to J. Morgan (simulated, platform-held)"
       ],
       "reasons": [
-        "ai.manipulation: hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"please don't tell of\" (Call audio (speaker not identified))"
+        "ai.manipulation: hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"promise you won't tell her\" (Call audio (speaker not identified))"
       ]
     },
     {
@@ -68,7 +68,7 @@
       "name": "reviewer link lasts ~30 min (ADR-0017), separate from the 72 h hold",
       "pass": true,
       "link_minutes": 30,
-      "auto_void_at": "2026-10-20T05:35:23.063Z"
+      "auto_void_at": "2026-10-20T07:56:39.116Z"
     },
     {
       "flow": "human",
@@ -90,15 +90,15 @@
       "pass": true,
       "status": "VOIDED",
       "amount": "1800.00",
-      "debug_id": "f8810625e24fc"
+      "debug_id": "f820822710490"
     },
     {
       "flow": "human",
       "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
       "pass": true,
-      "authorization": "659008602B829874E",
+      "authorization": "0KT52810EY6738825",
       "status": "VOIDED",
-      "seconds": 9
+      "seconds": 10
     },
     {
       "flow": "human",
@@ -143,8 +143,8 @@
       "capture": "COMPLETED",
       "amount": "1800.00",
       "debug_ids": [
-        "f61074948ddde",
-        "f4818239c8a20"
+        "f202949472b35",
+        "f309568e4bc0b"
       ]
     },
     {
@@ -157,6 +157,17 @@
       "captures": [
         "COMPLETED 1800.00"
       ]
+    },
+    {
+      "flow": "benign",
+      "name": "recipient payout: one batch for $1,800.00, item SUCCESS (direct PayPal GET /v1/payments/payouts/{id}); purchase stays CAPTURED",
+      "pass": true,
+      "stored": "SUCCESS",
+      "paypal_item_status": "SUCCESS",
+      "amount": "1800.00",
+      "receiver": "sb•••29@personal.example.com",
+      "batch_id": "SSKZNRER5YJPC",
+      "debug_id": "f727681824f70"
     },
     {
       "flow": "agent",
@@ -189,7 +200,7 @@
       "name": "reviewer link lasts ~30 min (ADR-0017), separate from the 72 h hold",
       "pass": true,
       "link_minutes": 30,
-      "auto_void_at": "2026-10-20T05:35:56.261Z"
+      "auto_void_at": "2026-10-20T07:57:29.563Z"
     },
     {
       "flow": "agent",
@@ -211,13 +222,13 @@
       "pass": true,
       "status": "VOIDED",
       "amount": "84.00",
-      "debug_id": "f79295592240b"
+      "debug_id": "f74267012fb36"
     },
     {
       "flow": "agent",
       "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
       "pass": true,
-      "authorization": "5KJ66611DL165094B",
+      "authorization": "8PL78448JJ247025X",
       "status": "VOIDED",
       "seconds": 7
     },

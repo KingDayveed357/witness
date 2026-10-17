@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, errText } from "../../../lib/client";
-import { clock, moneyTruth, type PayPalRead } from "../../../lib/sk";
+import { clock, moneyTruth, payoutTruth, type PayPalRead } from "../../../lib/sk";
 import { Button, Live } from "./ui";
 
 /**
@@ -10,7 +10,20 @@ import { Button, Live } from "./ui";
  * viewer is allowed to use (/v1/purchases/:id/paypal or /v1/holds/:id/verification?t=…). Re-reads
  * whenever `refreshKey` changes, and on demand.
  */
-export function PayPalCheck({ path, amount, refreshKey, console: inConsole }: { path: string; amount: string; refreshKey?: string; console?: boolean }) {
+export function PayPalCheck({
+  path,
+  amount,
+  refreshKey,
+  console: inConsole,
+  transfer,
+}: {
+  path: string;
+  amount: string;
+  refreshKey?: string;
+  console?: boolean;
+  /** For a transfer: who the recipient is and whether payouts are configured. */
+  transfer?: { payee: string; configured: boolean };
+}) {
   const [read, setRead] = useState<PayPalRead | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -30,6 +43,18 @@ export function PayPalCheck({ path, amount, refreshKey, console: inConsole }: { 
   }, [load, refreshKey]);
 
   const t = moneyTruth(read, amount);
+  const po = transfer && t.kind === "captured" ? payoutTruth(read, { ...transfer, amount }) : null;
+
+  // After a capture, keep reading until PayPal reports the payout settled (bounded).
+  const [polls, setPolls] = useState(0);
+  useEffect(() => {
+    if (!po || po.settled || polls >= 40) return;
+    const t = setTimeout(() => {
+      setPolls((n) => n + 1);
+      void load();
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [po?.settled, po?.kind, polls, load]);
   return (
     <div className="sk-verify" aria-live="polite">
       <div className="head">
@@ -47,10 +72,21 @@ export function PayPalCheck({ path, amount, refreshKey, console: inConsole }: { 
       )}
       {t.reference && (
         <span className="xs muted">
-          Reference <span className="mono">{t.reference}</span>
+          {po ? "Capture" : "Reference"} <span className="mono">{t.reference}</span>
           {read?.fetched_at ? ` · checked ${clock(read.fetched_at)}` : ""}
           {read?.debug_id ? <> · PayPal debug <span className="mono">{read.debug_id}</span></> : null}
         </span>
+      )}
+      {po && (
+        <div className="stack-sm" style={{ borderTop: "1px solid var(--line)", paddingTop: 8, marginTop: 2 }}>
+          <span className="sk-section-title">Then: paying the recipient</span>
+          {po.settled ? <strong style={{ fontWeight: 600 }}>{po.text}</strong> : <span className="soft">{po.text}</span>}
+          {po.reference && (
+            <span className="xs muted">
+              Payout <span className="mono">{po.reference}</span>
+            </span>
+          )}
+        </div>
       )}
     </div>
   );

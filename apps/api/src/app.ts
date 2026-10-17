@@ -16,6 +16,9 @@ import {
   runScenario,
   SCENARIOS,
   transferPolicy,
+  getPayout,
+  livePayout,
+  maskEmail,
   compileAndCreateIntent,
   draftDisputeEvidence,
   getHold,
@@ -184,6 +187,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
       const chain = await verifyChain(client, { purchaseId: p.id, ...(await epochOf(client, p.id)) });
       return {
         purchase: purchaseView(p),
+        payout: await getPayout(d, p.id),
         intent: intent ? intentView(intent) : null,
         facts: p.facts,
         request: { kind: (p.request as { kind?: string } | null)?.kind === "transfer" ? "transfer" : "shopping", conversation: (p.request as { conversation?: unknown } | null)?.conversation ?? null },
@@ -210,6 +214,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
       order: { id: order.data?.id, status: order.data?.status, amount: pu.amount, payee: pu.payee?.merchant_id, items: pu.items?.map((i: any) => ({ sku: i.sku, quantity: i.quantity, unit_amount: i.unit_amount })) },
       authorizations: pu.payments?.authorizations?.map((a: any) => ({ id: a.id, status: a.status, amount: a.amount })) ?? [],
       captures: pu.payments?.captures?.map((c: any) => ({ id: c.id, status: c.status, amount: c.amount })) ?? [],
+      payout: await livePayout(d, await getPayout(d, p.id)),
     };
   });
 
@@ -280,7 +285,18 @@ export function buildApp(o: AppOptions): FastifyInstance {
       name,
       title: s.title,
       expected: s.expected,
-      ...(s.transfer ? { transfer: { payee: s.transfer.payee, amount_cents: transferPolicy(new Date(), s.transfer).amount_cents, currency: "USD", purpose: s.transfer.purpose, conversation: s.transfer.conversation } } : {}),
+      ...(s.transfer
+        ? {
+            transfer: {
+              payee: { ...s.transfer.payee, ...(d.demoRecipientEmail ? { email: maskEmail(d.demoRecipientEmail) } : {}) },
+              payout_configured: Boolean(d.demoRecipientEmail),
+              amount_cents: transferPolicy(new Date(), s.transfer).amount_cents,
+              currency: "USD",
+              purpose: s.transfer.purpose,
+              conversation: s.transfer.conversation,
+            },
+          }
+        : {}),
     })),
   );
 

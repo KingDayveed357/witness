@@ -19,7 +19,8 @@ interface HoldView {
   replayed?: boolean;
   kind: "shopping" | "transfer";
   payer_name: string | null;
-  payee: { name: string; first_payment: boolean } | null;
+  payee: { name: string; first_payment: boolean; email?: string } | null;
+  payout_configured: boolean;
   purpose: string | null;
   conversation: Conversation | null;
   concerns: { check_id: string; kind: string; detail: string; evidence: Evidence[] }[];
@@ -156,6 +157,7 @@ export function Review({ id, token }: { id: string; token: string }) {
           <dd>
             {toWhom}
             {hold.payee?.first_payment ? <span className="muted"> · first payment to them</span> : null}
+            {hold.payee?.email ? <div className="xs muted">PayPal: {hold.payee.email}</div> : null}
           </dd>
           {hold.purpose && (
             <>
@@ -200,9 +202,13 @@ export function Review({ id, token }: { id: string; token: string }) {
               {recorded.replayed ? "This decision was already recorded; nothing was done twice." : `Second Key recorded your decision at ${clock(recorded.at)}.`} {s.moving ? "Waiting for PayPal to confirm…" : ""}
             </p>
           )}
-          {!s.moving && hold.amount && <PayPalCheck path={`/v1/holds/${id}/verification?t=${encodeURIComponent(tok.current)}`} amount={amount} refreshKey={hold.state} />}
-          {hold.state === "CAPTURED" && hold.kind === "transfer" && (
-            <Notice title="Where the money went">In this sandbox demo the payment completes to the Second Key demo merchant account. Paying it on to {toWhom} is a separate payout step, not part of this flow yet.</Notice>
+          {!s.moving && hold.amount && (
+            <PayPalCheck
+              path={`/v1/holds/${id}/verification?t=${encodeURIComponent(tok.current)}`}
+              amount={amount}
+              refreshKey={hold.state}
+              {...(hold.kind === "transfer" ? { transfer: { payee: toWhom, configured: hold.payout_configured } } : {})}
+            />
           )}
         </section>
       )}
@@ -280,7 +286,9 @@ export function Review({ id, token }: { id: string; token: string }) {
           <p className="small soft">
             {confirming === "deny"
               ? `PayPal will release the money reserved in ${payer}'s account. Nothing will be paid to ${toWhom}. This can't be undone; ${payer} can start a new payment if it was genuine.`
-              : `Second Key will check PayPal's record still matches, then complete the payment. Once completed it can't be cancelled here.`}
+              : hold.kind === "transfer" && hold.payout_configured
+                ? `Second Key will check PayPal's record still matches, complete the payment, then pay it out to ${toWhom}. Once completed it can't be cancelled here.`
+                : `Second Key will check PayPal's record still matches, then complete the payment. Once completed it can't be cancelled here.`}
           </p>
           <div className="row">
             <Button onClick={() => decide(confirming)} busy={submitting}>

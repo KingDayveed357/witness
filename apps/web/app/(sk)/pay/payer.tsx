@@ -10,7 +10,7 @@ import { PayPalCheck } from "../_ui/verify";
 
 interface ScenarioInfo {
   name: string;
-  transfer?: { payee: { id: string; name: string; first_payment: boolean }; amount_cents: number; currency: string; purpose: string | null; conversation: Conversation };
+  transfer?: { payee: { id: string; name: string; first_payment: boolean; email?: string }; payout_configured: boolean; amount_cents: number; currency: string; purpose: string | null; conversation: Conversation };
 }
 interface PurchaseView {
   id: string;
@@ -180,7 +180,7 @@ export function Payer() {
                 <p className="soft">{body(state, amount, info.payee.name, lastDecision?.decided_by)}</p>
               </div>
 
-              {purchase.paypal.order_id && <PayPalCheck path={`/v1/purchases/${purchase.id}/paypal`} amount={amount} refreshKey={state} />}
+              {purchase.paypal.order_id && <PayPalCheck path={`/v1/purchases/${purchase.id}/paypal`} amount={amount} refreshKey={state} transfer={{ payee: info.payee.name, configured: info.payout_configured }} />}
 
               {state === "HELD" && (
                 <>
@@ -223,9 +223,10 @@ export function Payer() {
               )}
 
               {state === "CAPTURED" && (
-                <Notice title="Where the money went">
-                  In this sandbox demo the payment is completed to the Second Key demo merchant account. Paying it on to {info.payee.name} would be a separate payout step, which isn&apos;t part of this flow yet.
-                </Notice>
+                <p className="xs muted">
+                  Two steps, each confirmed by PayPal: the payment is captured by the Second Key demo merchant, then paid out to {info.payee.name}
+                  {info.payee.email ? `'s PayPal account (${info.payee.email})` : ""}.
+                </p>
               )}
               {state === "VOIDED" && <p className="small soft">If this was a mistake, you can start a new payment at any time.</p>}
 
@@ -324,6 +325,7 @@ function Recipient({ info, amount }: { info: NonNullable<ScenarioInfo["transfer"
         <div>
           <div style={{ fontWeight: 600 }}>{info.payee.name}</div>
           <div className="small muted">{info.payee.first_payment ? "New recipient · you haven't paid them before" : "You've paid them before"}</div>
+          {info.payee.email && <div className="xs muted">PayPal: {info.payee.email}</div>}
         </div>
       </div>
       <div>

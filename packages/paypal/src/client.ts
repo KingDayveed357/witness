@@ -22,6 +22,11 @@ export class PayPalClient {
     return this.#t.send("POST", "/v2/checkout/orders", { body, requestId, label: "create-order" });
   }
 
+  /** Read-only: a payout batch and its items (status per item). */
+  getPayoutBatch(batchId: string): Promise<PayPalResponse> {
+    return this.#t.send("GET", `/v1/payments/payouts/${encodeURIComponent(batchId)}`, { label: "get-payout-batch" });
+  }
+
   getOrder(orderId: string): Promise<PayPalResponse> {
     return this.#t.send("GET", `/v2/checkout/orders/${encodeURIComponent(orderId)}`, { label: "get-order" });
   }

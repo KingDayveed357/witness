@@ -40,6 +40,8 @@ export const ApiConfig = Base.extend({
   WITNESS_DEFAULT_RETAILERS: z.string().default("rei.com,backcountry.com"),
   /** One-time reviewer link lifetime (ADR-0017). The hold itself still lasts until auto-void. */
   WITNESS_HOLD_LINK_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
+  /** Second Key demo: PayPal sandbox account that receives payouts for demo transfers. Unset → no payouts. */
+  SECONDKEY_DEMO_RECIPIENT_EMAIL: z.email().optional(),
 });
 export type ApiConfig = z.infer<typeof ApiConfig>;
 

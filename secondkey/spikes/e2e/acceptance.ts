@@ -141,6 +141,16 @@ async function transferIntent() {
   const da = await paypalDirect(`/v2/payments/authorizations/${await authorizationId(p.id)}`);
   rec(F, "direct PayPal GETs (own token): authorization CAPTURED, capture COMPLETED 1800.00", da.data?.status === "CAPTURED" && dc?.data?.status === "COMPLETED" && dc?.data?.amount?.value === "1800.00", { authorization: da.data?.status, capture: dc?.data?.status, amount: dc?.data?.amount?.value, debug_ids: [da.debug_id, dc?.debug_id] });
   rec(F, "captured once for the confirmed amount: authorization CAPTURED + one capture COMPLETED $1,800 (independent GET)", p.state === "CAPTURED" && pp.authorizations?.[0]?.status === "CAPTURED" && pp.captures?.length === 1 && pp.captures[0].status === "COMPLETED" && pp.captures[0].amount?.value === "1800.00", { state: p.state, order_status_not_used_as_proof: pp.order?.status, authorization: pp.authorizations?.[0]?.status, captures: pp.captures?.map((c: any) => `${c.status} ${c.amount?.value}`) });
+  // Then the payout to the recipient: its own record, followed until PayPal settles it, read directly.
+  let po: any = null;
+  for (let i = 0; i < 40; i++) {
+    po = (await call("GET", `/v1/purchases/${p.id}/evidence`, keys.ops)).json.payout;
+    if (po && !["SENDING", "UNKNOWN", "PENDING", "ONHOLD"].includes(po.status)) break;
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+  const directBatch = po?.batch_id ? await paypalDirect(`/v1/payments/payouts/${po.batch_id}`) : null;
+  const item = directBatch?.data?.items?.[0];
+  rec(F, "recipient payout: one batch for $1,800.00, item SUCCESS (direct PayPal GET /v1/payments/payouts/{id}); purchase stays CAPTURED", po?.status === "SUCCESS" && item?.transaction_status === "SUCCESS" && item?.payout_item?.amount?.value === "1800.00" && p.state === "CAPTURED", { stored: po?.status ?? null, paypal_item_status: item?.transaction_status ?? null, amount: item?.payout_item?.amount?.value ?? null, receiver: po?.receiver ?? null, batch_id: po?.batch_id ?? null, debug_id: directBatch?.debug_id ?? null });
 }
 
 // ---- A: AI agent, same engine ---------------------------------------------------------------------

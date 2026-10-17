@@ -33,6 +33,11 @@ export interface EngineDeps {
    * itself lasts holdMs; an expired link only means a new one must be issued.
    */
   holdLinkMs?: number;
+  /**
+   * Second Key demo only: the PayPal sandbox account that stands in for every demo recipient. When
+   * set, demo transfer intents carry it as the confirmed payee email, so approved transfers are paid out.
+   */
+  demoRecipientEmail?: string;
   adapters?: Record<string, CheckoutAdapter>;
 }
 

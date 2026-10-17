@@ -2,7 +2,7 @@
 // consumes single-use approvals, re-checks PayPal's order immediately before capturing, journals
 // every money call before making it, and reconciles anything whose outcome is unknown.
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { authorizationDiffs, authorizationOf, captureMatches, capturesOf, expectationFor, fromCents, paypalRequestId, threeWayMatch, type PurchaseState, type ResolvedCart } from "@witness/core";
 import {
   QUEUES,
@@ -25,6 +25,7 @@ import { authorizePurchase, logOf, nowOf, verifyPurchase, type EngineDeps } from
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import type { MoneyMovementClient } from "@witness/paypal/money-movement";
 import { assertConsumed, consumeApproval, reloadConsumedApproval, type ConsumedApproval } from "./approvals.ts";
+import { schedulePayout } from "./payout.ts";
 
 const { intents, paypalCalls, holds, purchases } = schema;
 
@@ -102,6 +103,8 @@ async function applyCaptureResult(d: ExecutorDeps, job: PurchaseJob, journalId: 
       patch: captureId ? { paypalCaptureId: captureId } : {},
     });
     if (to === "NEEDS_RECONCILE") await scheduleReconcile(d, tx, job);
+    // Second Key: a verified capture of a transfer is paid on to the confirmed recipient.
+    if (to === "CAPTURED") await schedulePayout(d, tx, p);
   });
 }
 
@@ -286,7 +289,7 @@ async function reconcileMoney(d: ExecutorDeps, job: PurchaseJob, p: PurchaseRow)
     await dbOf(d.pool)
       .select()
       .from(paypalCalls)
-      .where(eq(paypalCalls.purchaseId, p.id))
+      .where(and(eq(paypalCalls.purchaseId, p.id), inArray(paypalCalls.op, ["capture", "void"])))
       .orderBy(desc(paypalCalls.id))
       .limit(1)
   )[0];
@@ -345,6 +348,7 @@ async function reconcileMoney(d: ExecutorDeps, job: PurchaseJob, p: PurchaseRow)
     if (!locked || locked.state !== p.state) return;
     await transition(tx, { tenantId: locked.tenantId, purchaseId: locked.id, from: locked.state as PurchaseState, to: plan.to, event: plan.event, payload: { reconciled: true }, patch: plan.patch ?? {} });
     if (plan.followUp) await scheduleReconcile(d, tx, job, 1_000);
+    if (plan.to === "CAPTURED") await schedulePayout(d, tx, locked);
   });
   return `reconciled to ${plan.to}`;
 }

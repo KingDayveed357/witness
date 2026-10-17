@@ -43,7 +43,7 @@ export class PayPalNetworkError extends Error {}
 
 export class MoneyMovementForbidden extends Error {}
 
-const MONEY_PATH = /^\/v2\/payments\/authorizations\/[^/]+\/(capture|void|reauthorize)$|^\/v2\/payments\/captures\/[^/]+\/refund$/;
+const MONEY_PATH = /^\/v2\/payments\/authorizations\/[^/]+\/(capture|void|reauthorize)$|^\/v2\/payments\/captures\/[^/]+\/refund$|^\/v1\/payments\/payouts$/;
 
 export function assertSandbox(baseUrl: string): URL {
   let u: URL;

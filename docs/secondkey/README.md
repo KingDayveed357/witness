@@ -7,6 +7,7 @@ Payer (`/pay`), trusted contact (`/holds/[id]`), Protection Desk (`/desk`) and a
 - Design decisions: [11-experience-blueprint.md](11-experience-blueprint.md)
 - What was built, the verified lifecycle, licensing, limitations and the demo script: [12-vertical-slice.md](12-vertical-slice.md)
 - Screens: [screens/](screens/)
+- Recipient payout after a verified capture: [ADR-0018](../decisions/0018-recipient-payout.md). Verified live: payout item SUCCESS for $1,800 to the sandbox recipient.
 
 ## Hardening milestone (2026-10-17): status
 

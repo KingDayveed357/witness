@@ -1,5 +1,5 @@
 {
-  "ran_at": "2026-10-17T07:24:00.545Z",
+  "ran_at": "2026-10-17T08:08:29.910Z",
   "web": "http://127.0.0.1:3100",
   "environment": "local web + API + worker, PayPal SANDBOX, synthetic data",
   "steps": [
@@ -24,7 +24,7 @@
       "ok": true
     },
     {
-      "step": "payer: contractor invoice completed without review, capture verified",
+      "step": "payer: contractor invoice completed without review, capture verified, then the payout to the recipient shown as paid by PayPal",
       "ok": true
     },
     {

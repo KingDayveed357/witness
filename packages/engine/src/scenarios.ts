@@ -106,7 +106,7 @@ export async function runScenario(
 ): Promise<{ scenario: Scenario; intentId: string; result: SubmitResult } | null> {
   const scenario = SCENARIOS[name];
   if (!scenario) return null;
-  const t = scenario.transfer;
+  const t = scenario.transfer && { ...scenario.transfer, payee: { ...scenario.transfer.payee, ...(d.demoRecipientEmail ? { email: d.demoRecipientEmail } : {}) } };
   const created = await createIntent(
     d,
     agent.tenantId,

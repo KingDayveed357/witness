@@ -1,5 +1,6 @@
 export * from "./executor.ts";
 export * from "./dispatch.ts";
+export { checkPayout, executePayout, payoutReceiver, sweepPayouts, type PayoutJob } from "./payout.ts";
 export { consumeApproval, type ConsumedApproval } from "./approvals.ts";
 
 // The worker obtains money movement only through the executor package (architecture rules).

@@ -1,6 +1,6 @@
 // The words Second Key shows must match what the backend and PayPal actually confirmed.
 import { describe, expect, test } from "vitest";
-import { deciderOf, highlight, moneyTruth, rankEvidence, stageOf, tacticOf } from "../lib/sk.ts";
+import { deciderOf, highlight, moneyTruth, payoutTruth, rankEvidence, stageOf, tacticOf } from "../lib/sk.ts";
 
 describe("stageOf", () => {
   test("a decision is never shown as a completed money action", () => {
@@ -66,5 +66,22 @@ describe("rankEvidence", () => {
     const out = rankEvidence(input);
     expect(out.map((e) => e.quote)).toEqual(["d", "c", "a", "e", "b"]);
     expect(out).toHaveLength(input.length);
+  });
+});
+
+describe("payoutTruth: capture and payout are separate facts", () => {
+  const o = { configured: true, payee: "J. Morgan", amount: "$1,800.00" };
+  test("not configured is stated, never implied paid", () => {
+    expect(payoutTruth({ captures: [{ id: "C", status: "COMPLETED" }] }, { ...o, configured: false })).toMatchObject({ kind: "not_configured", settled: true });
+  });
+  test("captured but no batch yet is waiting, not paid", () => {
+    expect(payoutTruth({ captures: [{ id: "C", status: "COMPLETED" }] }, o)).toMatchObject({ kind: "waiting", settled: false });
+  });
+  test("only a SUCCESS item is 'paid'", () => {
+    const base = { batch_id: "B", item_id: "I", batch_status: "PROCESSING", amount: "1800.00" };
+    expect(payoutTruth({ payout: { ...base, item_status: "PENDING" } }, o)).toMatchObject({ kind: "pending", settled: false });
+    expect(payoutTruth({ payout: { ...base, item_status: "SUCCESS" } }, o)).toMatchObject({ kind: "paid", reference: "I" });
+    expect(payoutTruth({ payout: { ...base, item_status: "UNCLAIMED" } }, o).kind).toBe("unclaimed");
+    expect(payoutTruth({ payout: { ...base, item_status: "RETURNED" } }, o)).toMatchObject({ kind: "failed", settled: true });
   });
 });

@@ -122,7 +122,7 @@ export const approvals = pgTable("approvals", {
 export const paypalCalls = pgTable("paypal_calls", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   purchaseId: text("purchase_id").notNull(),
-  op: text("op", { enum: ["create-order", "capture", "void"] }).notNull(),
+  op: text("op", { enum: ["create-order", "capture", "void", "payout"] }).notNull(),
   requestId: text("request_id").notNull(),
   status: text("status", { enum: ["PENDING", "SUCCEEDED", "FAILED", "UNKNOWN"] }).notNull(),
   httpStatus: integer("http_status"),
@@ -145,6 +145,25 @@ export const webhookEvents = pgTable("webhook_events", {
   receivedAt: ts("received_at").notNull().defaultNow(),
   processedAt: ts("processed_at"),
   outcome: text("outcome"),
+});
+
+/** Second Key recipient payouts (0004): executor only, one per purchase, after a verified capture. */
+export const PAYOUT_STATUSES = ["SENDING", "UNKNOWN", "PENDING", "SUCCESS", "UNCLAIMED", "ONHOLD", "FAILED", "RETURNED", "BLOCKED", "REFUNDED", "REVERSED", "DENIED"] as const;
+export const payouts = pgTable("payouts", {
+  purchaseId: text("purchase_id").primaryKey(),
+  tenantId: text("tenant_id").notNull(),
+  receiver: text("receiver").notNull(),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+  currency: text("currency").notNull(),
+  senderBatchId: text("sender_batch_id").notNull(),
+  requestId: text("request_id").notNull(),
+  batchId: text("batch_id"),
+  itemId: text("item_id"),
+  status: text("status", { enum: PAYOUT_STATUSES }).notNull(),
+  checks: integer("checks").notNull().default(0),
+  lastError: text("last_error"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
 });
 
 export const holds = pgTable("holds", {

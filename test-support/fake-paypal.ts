@@ -43,6 +43,9 @@ export class FakePayPal {
   nextCaptureValue: string | null = null;
   /** Raw body of the last verify-webhook-signature call, to prove events are posted back verbatim. */
   lastVerifyBody: string | null = null;
+  /** Payout batches (Second Key). An item reports `nextPayoutItemStatus` (default SUCCESS) once read. */
+  payouts = new Map<string, { id: string; senderBatchId: string; receiver: string; value: string; currency: string; itemId: string; itemStatus: string }>();
+  nextPayoutItemStatus = "SUCCESS";
 
   constructor(payee = "7L6D422CPFA9Q") {
     this.payee = payee;
@@ -170,6 +173,25 @@ export class FakePayPal {
         return { status: 200, body: { links: [{ rel: "self" }] } };
       }
       return { status: 404, body: { name: "RESOURCE_NOT_FOUND" } };
+    }
+    if (method === "POST" && path === "/v1/payments/payouts") {
+      const sb = body?.sender_batch_header?.sender_batch_id as string;
+      if ([...this.payouts.values()].some((p) => p.senderBatchId === sb)) return { status: 400, body: { name: "USER_BUSINESS_ERROR", details: [{ issue: "DUPLICATE_SENDER_BATCH_ID" }] } };
+      const item = body.items[0];
+      const id = this.#id("PB");
+      this.payouts.set(id, { id, senderBatchId: sb, receiver: item.receiver, value: item.amount.value, currency: item.amount.currency, itemId: this.#id("PI"), itemStatus: this.nextPayoutItemStatus });
+      return { status: 201, body: { batch_header: { payout_batch_id: id, batch_status: "PENDING", sender_batch_header: body.sender_batch_header } } };
+    }
+    if (method === "GET" && (m = path.match(/^\/v1\/payments\/payouts\/([^/]+)$/))) {
+      const p = this.payouts.get(m[1]!);
+      if (!p) return { status: 404, body: { name: "RESOURCE_NOT_FOUND" } };
+      return {
+        status: 200,
+        body: {
+          batch_header: { payout_batch_id: p.id, batch_status: p.itemStatus === "SUCCESS" ? "SUCCESS" : "PROCESSING" },
+          items: [{ payout_item_id: p.itemId, transaction_status: p.itemStatus, payout_item: { amount: { currency: p.currency, value: p.value }, receiver: p.receiver } }],
+        },
+      };
     }
     if (method === "POST" && path === "/v2/checkout/orders") {
       const id = this.#id("ORD");

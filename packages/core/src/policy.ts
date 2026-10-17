@@ -59,6 +59,8 @@ export const TransferPolicyV1 = z.strictObject({
     name: z.string().min(1).max(80),
     /** True when the payer has never paid this payee before. */
     first_payment: z.boolean(),
+    /** The recipient's PayPal email. If set, an approved, captured transfer is paid out here, and only here. */
+    email: z.email().max(254).optional(),
   }),
   amount_cents: z.number().int().positive().max(10_000_000),
   currency: z.enum(CURRENCIES),

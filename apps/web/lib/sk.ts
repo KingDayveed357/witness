@@ -53,6 +53,34 @@ export interface PayPalRead {
   order_status?: string | null;
   authorizations?: { id: string; status: string; amount?: { value?: string }; value?: string }[];
   captures?: { id: string; status: string; amount?: { value?: string }; value?: string }[];
+  /** Second Key recipient payout, read live from PayPal (null until a batch exists). */
+  payout?: { batch_id: string; item_id: string | null; item_status: string | null; batch_status: string | null; amount: string | null; error?: string } | null;
+}
+
+export interface PayoutTruth {
+  kind: "not_configured" | "waiting" | "pending" | "paid" | "unclaimed" | "failed";
+  text: string;
+  reference: string | null;
+  settled: boolean;
+}
+
+const PAYOUT_FAILED = new Set(["FAILED", "RETURNED", "BLOCKED", "DENIED", "REVERSED", "REFUNDED"]);
+
+/**
+ * What PayPal says about paying the recipient, after the capture. Separate from the capture on
+ * purpose: a completed capture means PayPal took the money; only a SUCCESS payout item means the
+ * recipient received it.
+ */
+export function payoutTruth(read: PayPalRead | null | undefined, o: { configured: boolean; payee: string; amount: string }): PayoutTruth {
+  if (!o.configured) return { kind: "not_configured", text: `Paying ${o.payee} isn't set up in this deployment, so the captured money stays with the Second Key demo merchant.`, reference: null, settled: true };
+  const p = read?.payout;
+  if (!p) return { kind: "waiting", text: `Paying ${o.payee}: asking PayPal to send ${o.amount}…`, reference: null, settled: false };
+  const s = p.item_status;
+  const ref = p.item_id ?? p.batch_id;
+  if (s === "SUCCESS") return { kind: "paid", text: `PayPal shows ${o.amount} paid out to ${o.payee}.`, reference: ref, settled: true };
+  if (s === "UNCLAIMED") return { kind: "unclaimed", text: `Sent to ${o.payee}, whose email has no PayPal account yet. PayPal returns it if it isn't claimed within 30 days.`, reference: ref, settled: true };
+  if (s && PAYOUT_FAILED.has(s)) return { kind: "failed", text: `The payout to ${o.payee} didn't go through (PayPal: ${s.toLowerCase()}). The captured money remains with the Second Key demo merchant.`, reference: ref, settled: true };
+  return { kind: "pending", text: `Paying ${o.payee}: PayPal shows the payout as ${(s ?? p.batch_status ?? "pending").toLowerCase()}.`, reference: ref, settled: false };
 }
 
 export interface MoneyTruth {

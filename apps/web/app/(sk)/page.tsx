@@ -86,7 +86,7 @@ export default function Home() {
         <ul className="small soft" style={{ paddingLeft: 18, display: "grid", gap: 6 }}>
           <li>Payments run through the real Second Key engine against the PayPal <strong>sandbox</strong>. Statuses marked “Live” are read from the backend or from PayPal.</li>
           <li>A transfer here is platform-mediated: PayPal holds an authorization to the Second Key demo merchant, which is then voided or captured. It is not a PayPal Friends &amp; Family payment, and Second Key can&apos;t cancel arbitrary PayPal transfers.</li>
-          <li>Paying a captured transfer on to the recipient is a separate payout step that is not part of this flow yet.</li>
+          <li>On approval there are two separate, verified PayPal steps: the demo merchant captures the payment, then Second Key pays it out to the recipient&apos;s PayPal account. In the demo one sandbox account stands in for every recipient.</li>
           <li>People, calls and messages are synthetic. The reviewer link is shown on screen instead of being sent by text message.</li>
         </ul>
       </section>

@@ -202,7 +202,8 @@ function EmptyDetail() {
 interface EvidenceResp {
   purchase: { id: string; state: string; amount: { value: string; currency_code: string } | null; retailer: string | null; created_at: string; paypal: { order_id: string | null } };
   facts: Record<string, { title: string; description?: string }>;
-  intent: { policy: { kind?: string; payee?: { name: string; first_payment: boolean }; purpose?: string } } | null;
+  intent: { policy: { kind?: string; payee?: { name: string; first_payment: boolean; email?: string }; purpose?: string } } | null;
+  payout: { status: string; receiver: string; amount: { value: string }; batch_id: string | null; last_error: string | null; updated_at: string } | null;
   request: { kind: "shopping" | "transfer"; conversation: Conversation | null };
   checks: { phase: string; check_id: string; kind: string; result: "pass" | "fail" | "unknown"; detail: string; evidence: Evidence[] | null; model: string | null; prompt_version: string | null; at: string }[];
   decisions: { outcome: string; reasons: string[]; decided_by: string; at: string }[];
@@ -231,6 +232,13 @@ const EVENT_COPY: Record<string, string> = {
   "capture.outcome_unknown": "Capture outcome unclear; reconciling with PayPal",
   "void.retry": "Void retried with the same request ID",
   "void.unconfirmed": "Void not yet confirmed by PayPal",
+  "payout.requested": "Payout to the recipient requested",
+  "payout.accepted": "PayPal accepted the payout batch",
+  "payout.status": "Payout status changed",
+  "payout.succeeded": "PayPal paid the recipient",
+  "payout.unclaimed": "Payout unclaimed (recipient has no PayPal account yet)",
+  "payout.failed": "Payout didn't go through",
+  "payout.outcome_unknown": "Payout outcome unclear; retrying with the same request ID",
 };
 
 function Incident({ id }: { id: string }) {
@@ -344,8 +352,24 @@ function Incident({ id }: { id: string }) {
 
       <section className="sk-card stack" aria-labelledby="pp-h">
         <h2 id="pp-h" style={{ fontSize: "var(--text-lg)" }}>The money, according to PayPal</h2>
-        {p.paypal.order_id ? <PayPalCheck path={`/v1/purchases/${p.id}/paypal`} amount={amount} refreshKey={p.state} console /> : <p className="small soft">No PayPal order was created: the payment was refused before PayPal was called.</p>}
-        {isTransfer && p.state === "CAPTURED" && <p className="xs muted">Recipient payout: not part of this flow (proven separately in a sandbox spike, not wired into the product).</p>}
+        {p.paypal.order_id ? (
+          <PayPalCheck
+            path={`/v1/purchases/${p.id}/paypal`}
+            amount={amount}
+            refreshKey={p.state}
+            console
+            {...(isTransfer ? { transfer: { payee: ev.intent?.policy.payee?.name ?? "the recipient", configured: Boolean(ev.intent?.policy.payee?.email) } } : {})}
+          />
+        ) : (
+          <p className="small soft">No PayPal order was created: the payment was refused before PayPal was called.</p>
+        )}
+        {ev.payout && (
+          <p className="xs muted">
+            Payout record: {ev.payout.status} · {usd(ev.payout.amount.value)} to {ev.payout.receiver}
+            {ev.payout.batch_id ? <> · batch <span className="mono">{ev.payout.batch_id}</span></> : null}
+            {ev.payout.last_error ? ` · ${ev.payout.last_error}` : ""}
+          </p>
+        )}
         {ev.paypal_calls.length > 0 && (
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }} className="xs">
             {ev.paypal_calls.map((c, i) => (
@@ -368,7 +392,7 @@ function Incident({ id }: { id: string }) {
         {ev.chain.events.length === 0 && <p className="small soft">No audit events found for this payment.</p>}
         <ol className="sk-timeline">
           {ev.chain.events.map((e) => {
-            const money = ["purchase.authorized", "purchase.voided", "purchase.captured", "capture.started"].includes(e.event_type);
+            const money = ["purchase.authorized", "purchase.voided", "purchase.captured", "capture.started"].includes(e.event_type) || e.event_type.startsWith("payout.");
             const human = ["purchase.held", "purchase.void_decided", "purchase.capture_approved"].includes(e.event_type);
             const by = typeof e.payload?.decided_by === "string" ? deciderOf(e.payload.decided_by) : null;
             return (
