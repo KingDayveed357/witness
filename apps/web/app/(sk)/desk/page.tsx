@@ -6,44 +6,48 @@ import { Desk } from "./desk";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Protection Desk · Second Key" };
 
-// The investigator's workspace. Reads with the ops key, server-side, only inside a console session.
-export default async function Page({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+// The investigation workspace. Without a console session it is a public, read-only view of the
+// current demo session (synthetic data, served with the demo key). Operators sign in for the full
+// tenant history; the Desk itself never approves, captures or cancels a payment.
+export default async function Page({ searchParams }: { searchParams: Promise<{ error?: string; signin?: string }> }) {
+  const { error, signin } = await searchParams;
+  const operator = consoleConfigured() && validSession((await cookies()).get(SESSION_COOKIE)?.value);
   const header = (
-    <header className="stack-sm" style={{ maxWidth: 760 }}>
-      <span className="sk-section-title">Experience C · Protection Desk</span>
-      <h1 style={{ fontSize: "var(--text-2xl)" }}>What happened, why, and what PayPal says.</h1>
+    <header className="stack-sm" style={{ maxWidth: 820 }}>
+      <span className="sk-section-title">Protection Desk</span>
+      <h1 style={{ fontSize: "var(--text-2xl)" }}>What needs attention, why it was flagged, and what PayPal says happened.</h1>
+      <p className="soft small">Each row is a payment Second Key intervened on. The AI&apos;s assessment, the rule that decided, the person&apos;s decision and PayPal&apos;s state are separate columns, because they are separate facts.</p>
     </header>
   );
-  if (!consoleConfigured())
+
+  if (!operator && (signin || error)) {
     return (
       <div className="stack-lg">
         {header}
-        <div className="sk-card">The Desk isn&apos;t configured on this deployment (it needs WITNESS_CONSOLE_PASSWORD and WITNESS_SESSION_SECRET), so it stays closed.</div>
-      </div>
-    );
-  if (!validSession((await cookies()).get(SESSION_COOKIE)?.value)) {
-    const { error } = await searchParams;
-    return (
-      <div className="stack-lg">
-        {header}
-        <form method="post" action="/api/console/login" className="sk-card stack" style={{ maxWidth: 400 }}>
-          <input type="hidden" name="next" value="/desk" />
-          <p className="small soft">For investigators and platform reviewers. Read-only: the Desk can&apos;t approve, capture or cancel a payment.</p>
-          <label className="stack-sm small">
-            Password
-            <input type="password" name="password" autoComplete="current-password" required style={{ minHeight: 44, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line-strong)", font: "inherit", background: "var(--surface)", color: "var(--ink)" }} />
-          </label>
-          {error && <p className="small" style={{ color: "var(--brick)" }} role="alert">That password didn&apos;t match.</p>}
-          <button className="sk-btn primary">Sign in</button>
-        </form>
+        {consoleConfigured() ? (
+          <form method="post" action="/api/console/login" className="sk-card stack" style={{ maxWidth: 400 }}>
+            <input type="hidden" name="next" value="/desk" />
+            <p className="small soft">Operator sign-in shows the full tenant history. Still read-only: the Desk can&apos;t approve, capture or cancel a payment.</p>
+            <label className="stack-sm small">
+              Password
+              <input type="password" name="password" autoComplete="current-password" required style={{ minHeight: 44, padding: "0 12px", borderRadius: 10, border: "1px solid var(--line-strong)", font: "inherit", background: "var(--surface)", color: "var(--ink)" }} />
+            </label>
+            {error && <p className="small" style={{ color: "var(--brick)" }} role="alert">That password didn&apos;t match.</p>}
+            <button className="sk-btn primary">Sign in</button>
+            <a className="small" href="/desk">Back to the public view</a>
+          </form>
+        ) : (
+          <div className="sk-card">Operator sign-in isn&apos;t configured on this deployment. <a href="/desk">Use the public view.</a></div>
+        )}
       </div>
     );
   }
+
   return (
     <div className="stack-lg">
       {header}
       <Suspense>
-        <Desk />
+        <Desk mode={operator ? "operator" : "public"} />
       </Suspense>
     </div>
   );

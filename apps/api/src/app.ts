@@ -33,6 +33,7 @@ import {
 } from "@witness/engine";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { registerConsole, type ConsoleOptions } from "./console.ts";
+import { registerAnalyze } from "./analyze.ts";
 import { registerDisputes } from "./disputes.ts";
 
 export interface AppOptions {
@@ -56,6 +57,13 @@ const problem = (reply: FastifyReply, status: number, title: string, detail?: st
     .send({ type: "about:blank", title, status, ...(detail ? { detail } : {}), trace_id: reply.request.id });
 
 const shopperIdOf = (p: Principal) => (p.principal.startsWith("shopper:") ? p.principal.slice("shopper:".length) : null);
+
+/** Mask a transfer payee's email in an intent view (the receiver is shown masked everywhere). */
+function maskIntentEmail<T extends { policy: unknown }>(v: T): T {
+  const policy = v.policy as { kind?: string; payee?: { email?: string } } | null;
+  if (policy?.kind !== "transfer" || !policy.payee?.email) return v;
+  return { ...v, policy: { ...policy, payee: { ...policy.payee, email: maskEmail(policy.payee.email) } } };
+}
 
 /** The audit epoch that holds a purchase's events (a demo reset starts a new epoch). */
 async function epochOf(client: { query: (q: string, v: unknown[]) => Promise<{ rows: { epoch: number | null }[] }> }, purchaseId: string): Promise<{ epoch?: number }> {
@@ -188,7 +196,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
       return {
         purchase: purchaseView(p),
         payout: await getPayout(d, p.id),
-        intent: intent ? intentView(intent) : null,
+        intent: intent ? maskIntentEmail(intentView(intent)) : null,
         facts: p.facts,
         request: { kind: (p.request as { kind?: string } | null)?.kind === "transfer" ? "transfer" : "shopping", conversation: (p.request as { conversation?: unknown } | null)?.conversation ?? null },
         checks: checks.map((c) => ({ phase: c.phase, check_id: c.checkId, kind: c.kind, result: c.result, detail: c.detail, line: c.line, evidence: c.evidence ?? null, model: c.model, prompt_version: c.promptVersion, at: c.createdAt })),
@@ -380,6 +388,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
   });
 
   registerConsole(app, d, auth, problem, o.console);
+  registerAnalyze(app, auth, problem, { demoAi: o.console?.demoAi, demoAnalysesPerMinute: o.console?.demoAnalysesPerMinute });
   registerDisputes(app, d, auth, problem);
 
   // ---- public verification ----------------------------------------------------------------

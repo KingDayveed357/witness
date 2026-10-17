@@ -255,7 +255,8 @@
 
 /* ---------- desk ---------- */
 .sk-main:has(.sk-desk), .sk:has(.sk-desk) .sk-top .inner, .sk:has(.sk-desk) .sk-foot { max-width: 1440px; }
-.sk-desk { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); gap: var(--s5); align-items: start; }
+.sk-desk.solo { grid-template-columns: minmax(0, 1fr); }
+.sk-desk { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(380px, 1fr); gap: var(--s5); align-items: start; }
 .sk-desk .queue { height: calc(100vh - 220px); min-height: 420px; }
 .sk-desk .detail { max-height: calc(100vh - 140px); overflow: auto; position: sticky; top: 88px; }
 @media (max-width: 1100px) { .sk-desk { grid-template-columns: 1fr; } .sk-desk .queue { height: 420px; } .sk-desk .detail { max-height: none; position: static; } }

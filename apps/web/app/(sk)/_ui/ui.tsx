@@ -15,6 +15,7 @@ export function Nav() {
   return (
     <nav className="sk-nav" aria-label="Second Key">
       {item("/", "Overview", "hide-sm")}
+      {item("/try", "Try it")}
       {item("/pay", "Payer demo")}
       {item("/agent", "Agent demo")}
       {item("/desk", "Protection Desk")}

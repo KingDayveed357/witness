@@ -2,7 +2,7 @@
 // output leads to human review, invented quotes are discarded, and policy can override a "low" verdict.
 import { describe, expect, test } from "vitest";
 import { FakeLlm, checkManipulation, enforceRequired, requiredAiChecks, screenPaymentAi, type AiFailureReason } from "@witness/ai";
-import { assess, decide, locate, type Conversation } from "../src/manipulation.ts";
+import { assess, decide, explainDecision, locate, type Conversation } from "../src/manipulation.ts";
 
 const conv: Conversation = {
   context: "Rose is asked to send money.",
@@ -123,5 +123,20 @@ describe("required AI checks (ADR-0016 bypass guard)", () => {
     const out = await screenPaymentAi(ai, { kind: "transfer" }, conv);
     expect(ai.calls.map((c) => c.prompt)).toEqual(["manipulation"]);
     expect(out.map((c) => c.id)).toEqual(["ai.manipulation"]);
+  });
+});
+
+describe("explainDecision (the reason shown to people is the rule that ran)", () => {
+  test("every risk level and evidence combination maps to the same intervention as decide()", () => {
+    const g = (tactic: string) => ({ tactic, quote: "q", speaker: "s", model_speaker: "s", why: "w", line_index: 0 }) as never;
+    const out = (risk: string) => ({ risk, tactics: [], legitimate_explanation: "", confidence: 0.5, needs_independent_verification: false, recommended_action: "proceed" }) as never;
+    const cases: [unknown, unknown[]][] = [[null, []], [out("high"), []], [out("medium"), [g("urgency")]], [out("medium"), []], [out("insufficient_information"), []], [out("low"), [g("threat"), g("safe_account")]], [out("low"), [g("urgency")]]];
+    const rules = new Set<string>();
+    for (const [o, gr] of cases) {
+      const e = explainDecision(o as never, gr as never);
+      expect(e.intervention).toBe(decide(o as never, gr as never));
+      rules.add(e.rule);
+    }
+    expect(rules.size).toBe(7);
   });
 });
