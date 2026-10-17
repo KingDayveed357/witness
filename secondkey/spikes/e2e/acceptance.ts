@@ -21,7 +21,7 @@ import { ROOT, loadDotEnv } from "@witness/config";
 import { transferPolicy, transferRequest } from "@witness/engine";
 
 const BASE = process.env.WITNESS_API ?? "http://127.0.0.1:4000";
-const keys = JSON.parse(readFileSync(join(ROOT, ".witness", "dev-keys.json"), "utf8"));
+const keys = JSON.parse(readFileSync(join(ROOT, process.env.WITNESS_KEYS_FILE ?? ".witness/dev-keys.json"), "utf8"));
 const results: Record<string, unknown>[] = [];
 const rec = (flow: string, name: string, pass: boolean, detail: Record<string, unknown> = {}) => {
   results.push({ flow, name, pass, ...detail });

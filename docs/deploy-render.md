@@ -214,3 +214,18 @@ I'll then record which webhook events fire for each step (an open "Unknown" from
 | Scenario returns AUTH_FAILED "buyer action required" | Saved wallet not usable with these credentials | Tell me; we re-run spike 03 to save a fresh wallet |
 | Webhooks: 0 verified, some rejected | Wrong `PAYPAL_WEBHOOK_ID`, or the webhook belongs to a different app than the client ID | Copy the ID again from the **same** app; save; rerun step 7 |
 | Webhooks: 0 received at all | URL typo in PayPal, or wrong event types | Check the URL ends with `/v1/webhooks/paypal`; check the events are ticked |
+
+---
+
+## Second Key on Render (added 2026-10-17)
+
+Deploying the Second Key branch needs no new services. Migrations `0003_check_evidence` and `0004_payouts` run automatically in `witness-api`'s pre-deploy step. Two optional settings are made in the Render dashboard (they aren't in `render.yaml`, so a Blueprint sync never blocks a deploy):
+
+1. **Recipient payouts.** In `witness-api` → **Environment**, add `SECONDKEY_DEMO_RECIPIENT_EMAIL` = the email of the PayPal **sandbox personal** account that stands in for demo recipients. Save; Render redeploys the API. Without it, approved transfers are captured but not paid out, and the screens say "Paying the recipient isn't set up in this deployment". The sandbox merchant's balance must cover the $1,800 payouts.
+2. **The demo payer's name.** The reviewer screen says "<name> asked you to check a payment", using the seeded shopper's display name. To show "Rose", run this once against the Render database (External Database URL, `?sslmode=require`):
+   ```bash
+   psql "PASTE-EXTERNAL-DATABASE-URL?sslmode=require" -c "UPDATE shoppers SET display_name = 'Rose' WHERE id = 'shp_…';"
+   ```
+   Use the same `shp_…` as `WITNESS_DEMO_SHOPPER_ID`.
+
+The Protection Desk at `/desk` uses the existing console password (`WITNESS_CONSOLE_PASSWORD`). The demo reset (`POST /v1/demo/reset`, admin key from `.witness/render-keys.json`) starts a clean demo session without deleting anything.
