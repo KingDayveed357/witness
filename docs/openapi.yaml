@@ -189,12 +189,16 @@ paths:
               properties:
                 token: { type: string }
       responses:
-        "202":
-          description: Approved; capture queued
+        "200":
+          description: "Approval recorded after PayPal's order was re-checked (state CAPTURE_APPROVED, or VOIDING if it no longer matches). The executor captures; this call never does. replayed=true when the same decision was already recorded."
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PurchaseStatus" }
-        "410": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { description: "Token doesn't match this purchase's current link" }
+        "409": { description: "The hold was already decided differently" }
+        "410": { description: "Link expired, or no link was issued" }
+        "502": { description: "PayPal couldn't be reached to re-check the order; nothing changed" }
   /holds/{purchaseId}/deny:
     post:
       tags: [holds]
@@ -211,11 +215,15 @@ paths:
               properties:
                 token: { type: string }
       responses:
-        "202":
-          description: Denied; void queued
+        "200":
+          description: "Denial recorded (state VOIDING; VOIDED only after PayPal confirms). replayed=true when the same decision was already recorded."
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PurchaseStatus" }
+        "401": { $ref: "#/components/responses/Problem" }
+        "403": { description: "Token doesn't match this purchase's current link" }
+        "409": { description: "The hold was already decided differently" }
+        "410": { description: "Link expired, or no link was issued" }
   /webhooks/paypal:
     post:
       tags: [webhooks]
@@ -263,7 +271,7 @@ paths:
       security: [{ apiKey: [shopper] }, { apiKey: [admin] }]
       parameters: [{ $ref: "#/components/parameters/purchaseId" }]
       responses:
-        "200": { description: "path, token, expires_at" }
+        "200": { description: "path, token, expires_at (the LINK's expiry: default 30 min, capped at the hold's auto_void_at)" }
         "409": { $ref: "#/components/responses/Problem" }
   /holds/{purchaseId}:
     get:
@@ -272,7 +280,7 @@ paths:
       security: [{ apiKey: [shopper] }, { holdToken: [] }]
       parameters: [{ $ref: "#/components/parameters/purchaseId" }]
       responses:
-        "200": { description: "purchase_id, state, reasons, amount, items, retailer, auto_void_at, resolution" }
+        "200": { description: "purchase_id, state, reasons, amount, items, retailer, auto_void_at (when the held money is released automatically), resolution, link_expires_at (when this link stops working; null when signed in)" }
         "401": { $ref: "#/components/responses/Problem" }
         "410": { $ref: "#/components/responses/Problem" }
   /me/purchases:
@@ -444,7 +452,7 @@ components:
   securitySchemes:
     apiKey: { type: http, scheme: bearer, description: "Witness API key; scopes agent:purchase | ops | demo | admin" }
     shopperSession: { type: apiKey, in: cookie, name: witness_session }
-    holdToken: { type: apiKey, in: query, name: t, description: "One-time token from the HOLD notification, 15-minute expiry" }
+    holdToken: { type: apiKey, in: query, name: t, description: "One-time reviewer token bound to one purchase. Valid for WITNESS_HOLD_LINK_TTL_MINUTES (default 30) and never past the hold's auto_void_at; re-issuing replaces it. It decides once: retrying the same decision returns the recorded result with replayed=true, the opposite decision returns 409, an expired token 410 (ADR-0017)." }
   parameters:
     intentId: { name: intentId, in: path, required: true, schema: { type: string } }
     purchaseId: { name: purchaseId, in: path, required: true, schema: { type: string } }

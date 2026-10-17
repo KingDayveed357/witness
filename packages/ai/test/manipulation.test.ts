@@ -1,7 +1,7 @@
 // Offline fail-safe tests for the Second Key manipulation detector (no network): every model failure or untrustworthy
 // output leads to human review, invented quotes are discarded, and policy can override a "low" verdict.
 import { describe, expect, test } from "vitest";
-import { FakeLlm, checkManipulation, type AiFailureReason } from "@witness/ai";
+import { FakeLlm, checkManipulation, enforceRequired, requiredAiChecks, screenPaymentAi, type AiFailureReason } from "@witness/ai";
 import { assess, decide, locate, type Conversation } from "../src/manipulation.ts";
 
 const conv: Conversation = {
@@ -95,5 +95,33 @@ describe("checkManipulation (the engine's screening check)", () => {
   test("confident low risk with no severe tactics → pass", async () => {
     const c = await checkManipulation(new FakeLlm().on("manipulation", reply({ risk: "low", confidence: 0.9, recommended_action: "proceed" })), conv);
     expect(c.result).toBe("pass");
+  });
+});
+
+describe("required AI checks (ADR-0016 bypass guard)", () => {
+  test("transfer always requires ai.manipulation; shopping requires ai.injection, plus manipulation with a conversation", () => {
+    expect(requiredAiChecks("transfer", false)).toEqual(["ai.manipulation"]);
+    expect(requiredAiChecks("shopping", false)).toEqual(["ai.injection"]);
+    expect(requiredAiChecks("shopping", true)).toEqual(["ai.injection", "ai.manipulation"]);
+  });
+
+  test("a missing required check is added as unknown (HOLD)", () => {
+    const out = enforceRequired(["ai.manipulation"], []);
+    expect(out).toEqual([expect.objectContaining({ id: "ai.manipulation", result: "unknown" })]);
+    expect(enforceRequired(["ai.manipulation"], [{ id: "ai.manipulation", result: "pass", detail: "" }])).toHaveLength(1);
+  });
+
+  test("a transfer screened without a conversation still holds", async () => {
+    const ai = new FakeLlm().on("manipulation", reply({ risk: "low", recommended_action: "proceed" }));
+    const out = await screenPaymentAi(ai, { kind: "transfer" });
+    expect(out).toEqual([expect.objectContaining({ id: "ai.manipulation", result: "unknown" })]);
+    expect(ai.calls).toHaveLength(0);
+  });
+
+  test("a transfer calls only the manipulation prompt", async () => {
+    const ai = new FakeLlm().on("manipulation", reply({ risk: "low", recommended_action: "proceed" }));
+    const out = await screenPaymentAi(ai, { kind: "transfer" }, conv);
+    expect(ai.calls.map((c) => c.prompt)).toEqual(["manipulation"]);
+    expect(out.map((c) => c.id)).toEqual(["ai.manipulation"]);
   });
 });

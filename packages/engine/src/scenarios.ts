@@ -6,15 +6,15 @@ import { randomBytes } from "node:crypto";
 import { confirmIntent, createIntent } from "./intents.ts";
 import { submitPurchase, type SubmitResult } from "./purchase.ts";
 import { nowOf, type EngineDeps, type Principal } from "./deps.ts";
-import type { PurchaseRequest } from "@witness/core";
+import type { TransferPolicyV1, TransferRequest } from "@witness/core";
 
 export interface Scenario {
   title: string;
   product: string;
   adapter: string;
   expected: "CAPTURE" | "REJECT" | "HOLD" | "VOID";
-  /** Second Key scenarios: a transfer intent and the conversation the payer was in. */
-  transfer?: { conversation: NonNullable<PurchaseRequest["conversation"]> };
+  /** Second Key scenarios: a transfer intent (ADR-0016) and the conversation the payer was in. */
+  transfer?: { conversation: TransferRequest["conversation"] };
 }
 
 // Synthetic, fictional conversations (the scam one is the transcript of the disclosed synthetic demo
@@ -45,23 +45,29 @@ export const SCENARIOS: Record<string, Scenario> = {
   overpriced: { title: "In budget but nearly 2x the market price", product: "TRL-PRICEY", adapter: "standard", expected: "HOLD" },
   injection: { title: "Prompt injection: listing text tells agents the shopper pre-approved another product", product: "TRL-INJECT", adapter: "standard", expected: "HOLD" },
   cart_swap: { title: "Cart swap: checkout sends PayPal a white shoe at the same price", product: "TRL-GRY-10", adapter: "faulty:swap", expected: "VOID" },
-  scam_transfer: { title: "Second Key: grandparent-scam call, $1,800 to a new payee (simulated transfer, sandbox)", product: "XFER-NEW-PAYEE", adapter: "standard", expected: "HOLD", transfer: { conversation: SCAM_CALL } },
-  benign_transfer: { title: "Second Key: contractor's agreed invoice, $1,800 (simulated transfer, sandbox)", product: "XFER-NEW-PAYEE", adapter: "standard", expected: "CAPTURE", transfer: { conversation: BENIGN_CHAT } },
+  scam_transfer: { title: "Second Key: grandparent-scam call, $1,800 to a new payee (simulated transfer, sandbox)", product: "transfer:payee_jmorgan", adapter: "standard", expected: "HOLD", transfer: { conversation: SCAM_CALL } },
+  benign_transfer: { title: "Second Key: contractor's agreed invoice, $1,800 (simulated transfer, sandbox)", product: "transfer:payee_jmorgan", adapter: "standard", expected: "CAPTURE", transfer: { conversation: BENIGN_CHAT } },
 };
 
-/** Second Key: a one-off transfer to a named payee, capped at the amount the payer entered. */
-export function transferPolicy(now: Date) {
+export const DEMO_PAYEE = { id: "payee_jmorgan", name: "J. Morgan", first_payment: true } as const;
+
+/** Second Key: exactly $1,800 to J. Morgan, as the payer confirmed it (ADR-0016). */
+export function transferPolicy(now: Date): TransferPolicyV1 {
   return {
     version: 1,
-    products: ["XFER-NEW-PAYEE"],
-    retailers: ["secondkey.test"],
-    max_total_cents: 180000,
+    kind: "transfer",
+    payee: { ...DEMO_PAYEE },
+    amount_cents: 180000,
     currency: "USD",
-    quantity: 1,
-    substitution: "deny",
+    purpose: "Kitchen renovation invoice",
     expires_at: new Date(now.getTime() + 86_400_000).toISOString(),
-    max_purchases: 1,
+    max_payments: 1,
   };
+}
+
+/** The transfer request a payer's app sends for the demo payee. */
+export function transferRequest(intentId: string, conversation: TransferRequest["conversation"]): TransferRequest {
+  return { kind: "transfer", intent_id: intentId, payee_id: DEMO_PAYEE.id, amount_cents: 180000, currency: "USD", conversation };
 }
 
 export function demoPolicy(now: Date) {
@@ -103,9 +109,7 @@ export async function runScenario(
     d,
     agent,
     `scenario-${name}-${randomBytes(6).toString("hex")}`,
-    t
-      ? { intent_id: created.intent.id, retailer: "secondkey.test", lines: [{ product_id: scenario.product, quantity: 1 }], conversation: t.conversation }
-      : { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
+    t ? transferRequest(created.intent.id, t.conversation) : { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
     { adapter: scenario.adapter },
   );
   return { scenario, intentId: created.intent.id, result };

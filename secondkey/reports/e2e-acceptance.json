@@ -1,5 +1,5 @@
 {
-  "ran_at": "2026-10-16T20:38:14.143Z",
+  "ran_at": "2026-10-17T05:36:17.195Z",
   "api": "http://127.0.0.1:4000",
   "environment": "local API + worker, PayPal SANDBOX, simulated transfer (platform-held authorization)",
   "results": [
@@ -8,16 +8,22 @@
       "name": "1. audio ingested and transcribed on-device (System.Speech, disclosed synthetic call)",
       "pass": true,
       "segments": 12,
-      "asr_ms": 2839,
-      "wall_ms": 5387,
+      "asr_ms": 3519,
+      "wall_ms": 9453,
       "transcript": "Grandma city Denny I'm in real trouble a got arrested after a car accident Denny a sound different light noses broken that's why please I need $1800 for bail right now they keep me overnight and please don't tell of Il killed a promise you won't tell her"
     },
     {
       "flow": "human",
-      "name": "payment submitted through the shared engine",
+      "name": "transfer request (kind=transfer, ADR-0016) submitted through the shared engine",
       "pass": true,
       "status": 202,
-      "purchase": "pur_wVAJMpx0SokjFEgW"
+      "purchase": "pur_JFFPve9_ZvIfnDCB"
+    },
+    {
+      "flow": "human",
+      "name": "retry with the same Idempotency-Key replays the same payment (no second PayPal order)",
+      "pass": true,
+      "status": 200
     },
     {
       "flow": "human",
@@ -27,7 +33,7 @@
         "Grandma",
         "a sound different",
         "please I need $1800 for bail right now",
-        "a got arrested after a car accident"
+        "please don't tell of"
       ],
       "grounded": "4/4"
     },
@@ -38,7 +44,7 @@
       "state": "HELD",
       "check": {
         "result": "unknown",
-        "detail": "hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); authority pressure: \"a got arrested after a car accident\" (Call audio (speaker not identified))",
+        "detail": "hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"please don't tell of\" (Call audio (speaker not identified))",
         "kind": "ai"
       }
     },
@@ -51,11 +57,18 @@
         "value": "1800.00"
       },
       "items": [
-        "Simulated transfer to J. Morgan (new payee), sandbox, held by platform"
+        "Transfer to J. Morgan (simulated, platform-held)"
       ],
       "reasons": [
-        "ai.manipulation: hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); authority pressure: \"a got arrested after a car accident\" (Call audio (speaker not identified))"
+        "ai.manipulation: hold for trusted contact: manipulation risk high; impersonation: \"Grandma\" (Call audio (speaker not identified)); impersonation: \"a sound different\" (Call audio (speaker not identified)); urgency: \"please I need $1800 for bail right now\" (Call audio (speaker not identified)); secrecy: \"please don't tell of\" (Call audio (speaker not identified))"
       ]
+    },
+    {
+      "flow": "human",
+      "name": "reviewer link lasts ~30 min (ADR-0017), separate from the 72 h hold",
+      "pass": true,
+      "link_minutes": 30,
+      "auto_void_at": "2026-10-20T05:35:23.063Z"
     },
     {
       "flow": "human",
@@ -73,15 +86,30 @@
     },
     {
       "flow": "human",
-      "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
+      "name": "direct PayPal GET /v2/payments/authorizations/{id} (own token, not via Witness): VOIDED",
       "pass": true,
-      "authorization": "58869021C87672832",
       "status": "VOIDED",
-      "seconds": 7
+      "amount": "1800.00",
+      "debug_id": "f8810625e24fc"
     },
     {
       "flow": "human",
-      "name": "replayed reviewer token refused",
+      "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
+      "pass": true,
+      "authorization": "659008602B829874E",
+      "status": "VOIDED",
+      "seconds": 9
+    },
+    {
+      "flow": "human",
+      "name": "retried deny returns the recorded decision (replayed), no second void",
+      "pass": true,
+      "status": 200,
+      "replayed": true
+    },
+    {
+      "flow": "human",
+      "name": "opposite decision on the spent link refused (409)",
       "pass": true
     },
     {
@@ -109,9 +137,23 @@
     },
     {
       "flow": "benign",
-      "name": "captured once, verified at PayPal (independent GET)",
+      "name": "direct PayPal GETs (own token): authorization CAPTURED, capture COMPLETED 1800.00",
+      "pass": true,
+      "authorization": "CAPTURED",
+      "capture": "COMPLETED",
+      "amount": "1800.00",
+      "debug_ids": [
+        "f61074948ddde",
+        "f4818239c8a20"
+      ]
+    },
+    {
+      "flow": "benign",
+      "name": "captured once for the confirmed amount: authorization CAPTURED + one capture COMPLETED $1,800 (independent GET)",
       "pass": true,
       "state": "CAPTURED",
+      "order_status_not_used_as_proof": "COMPLETED",
+      "authorization": "CAPTURED",
       "captures": [
         "COMPLETED 1800.00"
       ]
@@ -144,6 +186,13 @@
     },
     {
       "flow": "agent",
+      "name": "reviewer link lasts ~30 min (ADR-0017), separate from the 72 h hold",
+      "pass": true,
+      "link_minutes": 30,
+      "auto_void_at": "2026-10-20T05:35:56.261Z"
+    },
+    {
+      "flow": "agent",
       "name": "while held: PayPal authorization CREATED, nothing captured (independent GET)",
       "pass": true,
       "order": "COMPLETED",
@@ -158,15 +207,30 @@
     },
     {
       "flow": "agent",
-      "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
+      "name": "direct PayPal GET /v2/payments/authorizations/{id} (own token, not via Witness): VOIDED",
       "pass": true,
-      "authorization": "1MD87735A7731382W",
       "status": "VOIDED",
-      "seconds": 6
+      "amount": "84.00",
+      "debug_id": "f79295592240b"
     },
     {
       "flow": "agent",
-      "name": "replayed reviewer token refused",
+      "name": "PayPal authorization VOIDED, $0 captured (independent GET)",
+      "pass": true,
+      "authorization": "5KJ66611DL165094B",
+      "status": "VOIDED",
+      "seconds": 7
+    },
+    {
+      "flow": "agent",
+      "name": "retried deny returns the recorded decision (replayed), no second void",
+      "pass": true,
+      "status": 200,
+      "replayed": true
+    },
+    {
+      "flow": "agent",
+      "name": "opposite decision on the spent link refused (409)",
       "pass": true
     },
     {

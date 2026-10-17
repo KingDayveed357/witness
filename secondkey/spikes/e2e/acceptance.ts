@@ -17,8 +17,8 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { ROOT } from "@witness/config";
-import { transferPolicy } from "@witness/engine";
+import { ROOT, loadDotEnv } from "@witness/config";
+import { transferPolicy, transferRequest } from "@witness/engine";
 
 const BASE = process.env.WITNESS_API ?? "http://127.0.0.1:4000";
 const keys = JSON.parse(readFileSync(join(ROOT, ".witness", "dev-keys.json"), "utf8"));
@@ -52,10 +52,27 @@ const checkOf = async (p: any, id: string) => {
 };
 const paypal = async (id: string) => (await call("GET", `/v1/purchases/${id}/paypal`, keys.ops)).json;
 
+// Direct PayPal reads with this script's own sandbox token: independent of the Witness API and DB.
+loadDotEnv();
+const PP = process.env.PAYPAL_BASE_URL!.replace(/\/$/, "");
+if (!/^https:\/\/api(-m)?\.sandbox\.paypal\.com$/.test(PP)) throw new Error("sandbox only");
+let ppToken = "";
+async function paypalDirect(path: string) {
+  if (!ppToken) {
+    const r = await fetch(`${PP}/v1/oauth2/token`, { method: "POST", headers: { authorization: `Basic ${Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString("base64")}`, "content-type": "application/x-www-form-urlencoded" }, body: "grant_type=client_credentials" });
+    ppToken = ((await r.json()) as { access_token: string }).access_token;
+  }
+  const r = await fetch(`${PP}${path}`, { headers: { authorization: `Bearer ${ppToken}` } });
+  return { status: r.status, debug_id: r.headers.get("paypal-debug-id"), data: (await r.json()) as any };
+}
+const authorizationId = async (id: string) => (await call("GET", `/v1/purchases/${id}`, keys.ops)).json.paypal?.authorization_id as string;
+
 async function denyAndVerify(flow: string, id: string) {
   const link = await call("POST", `/v1/purchases/${id}/hold-link`, keys.shopper);
   const view = await call("GET", `/v1/holds/${id}?t=${link.json.token}`);
   rec(flow, "trusted contact's view shows amount, item and the reasons (with quotes where present)", view.status === 200 && view.json.reasons?.length > 0, { amount: view.json.amount, items: view.json.items?.map((i: any) => i.name ?? i.title), reasons: view.json.reasons });
+  const linkMin = Math.round((Date.parse(link.json.expires_at) - Date.now()) / 60_000);
+  rec(flow, "reviewer link lasts ~30 min (ADR-0017), separate from the 72 h hold", linkMin >= 28 && linkMin <= 30 && Date.parse(view.json.auto_void_at) - Date.parse(link.json.expires_at) > 70 * 3600_000, { link_minutes: linkMin, auto_void_at: view.json.auto_void_at });
   const pp0 = await paypal(id);
   rec(flow, "while held: PayPal authorization CREATED, nothing captured (independent GET)", pp0.authorizations?.[0]?.status === "CREATED" && pp0.captures?.length === 0, { order: pp0.order?.status, auth: pp0.authorizations?.[0]?.status, captures: pp0.captures?.length });
   const t0 = Date.now();
@@ -63,8 +80,12 @@ async function denyAndVerify(flow: string, id: string) {
   rec(flow, "trusted contact denies → response VOIDING (a decision, not yet a PayPal result)", d.status === 200 && d.json.state === "VOIDING", { state: d.json?.state });
   const p = await until(id, (s) => s === "VOIDED" || s === "NEEDS_RECONCILE");
   const pp = await paypal(id);
+  const direct = await paypalDirect(`/v2/payments/authorizations/${await authorizationId(id)}`);
+  rec(flow, "direct PayPal GET /v2/payments/authorizations/{id} (own token, not via Witness): VOIDED", direct.status === 200 && direct.data?.status === "VOIDED", { status: direct.data?.status, amount: direct.data?.amount?.value, debug_id: direct.debug_id });
   rec(flow, "PayPal authorization VOIDED, $0 captured (independent GET)", p.state === "VOIDED" && pp.authorizations?.[0]?.status === "VOIDED" && pp.captures.length === 0, { authorization: pp.authorizations?.[0]?.id, status: pp.authorizations?.[0]?.status, seconds: Math.round((Date.now() - t0) / 1000) });
-  rec(flow, "replayed reviewer token refused", [403, 409, 410].includes((await call("POST", `/v1/holds/${id}/approve`, undefined, { token: link.json.token })).status));
+  const dup = await call("POST", `/v1/holds/${id}/deny`, undefined, { token: link.json.token });
+  rec(flow, "retried deny returns the recorded decision (replayed), no second void", dup.status === 200 && dup.json?.replayed === true, { status: dup.status, replayed: dup.json?.replayed ?? null });
+  rec(flow, "opposite decision on the spent link refused (409)", (await call("POST", `/v1/holds/${id}/approve`, undefined, { token: link.json.token })).status === 409);
   const chain = (await call("GET", `/v1/verify/purchases/${id}`)).json;
   rec(flow, "audit chain valid and records the decision and the void", chain.valid && chain.events.some((e: any) => e.event_type.includes("void")), { events: chain.events.map((e: any) => e.event_type) });
 }
@@ -92,8 +113,11 @@ async function transferIntent() {
     lines: segments.map((s) => ({ speaker: "Call audio (speaker not identified)", text: s.text })),
   };
   const intent = await transferIntent();
-  const sub = await call("POST", "/v1/purchases", keys.agent, { intent_id: intent, retailer: "secondkey.test", lines: [{ product_id: "XFER-NEW-PAYEE", quantity: 1 }], conversation }, { "idempotency-key": `e2e-human-${randomBytes(6).toString("hex")}` });
-  rec(F, "payment submitted through the shared engine", sub.status === 202, { status: sub.status, purchase: sub.json?.id });
+  const idem = `e2e-human-${randomBytes(6).toString("hex")}`;
+  const sub = await call("POST", "/v1/purchases", keys.agent, transferRequest(intent, conversation), { "idempotency-key": idem });
+  rec(F, "transfer request (kind=transfer, ADR-0016) submitted through the shared engine", sub.status === 202, { status: sub.status, purchase: sub.json?.id });
+  const again = await call("POST", "/v1/purchases", keys.agent, transferRequest(intent, conversation), { "idempotency-key": idem });
+  rec(F, "retry with the same Idempotency-Key replays the same payment (no second PayPal order)", again.status === 200 && again.json?.id === sub.json?.id, { status: again.status });
   const p = await until(sub.json.id, (s) => TERMINAL.includes(s));
   const m = await checkOf(p, "ai.manipulation");
   const quotes = [...(m?.detail ?? "").matchAll(/"([^"]+)"/g)].map((x) => x[1]!);
@@ -111,7 +135,12 @@ async function transferIntent() {
   const m = await checkOf(p, "ai.manipulation");
   rec(F, "agreed invoice: manipulation check passes, no hold", m?.result === "pass", { check: m });
   const pp = await paypal(p.id);
-  rec(F, "captured once, verified at PayPal (independent GET)", p.state === "CAPTURED" && pp.captures?.length === 1 && pp.captures[0].status === "COMPLETED", { state: p.state, captures: pp.captures?.map((c: any) => `${c.status} ${c.amount?.value}`) });
+  // Proof is the authorization and capture records, not the order status (which says COMPLETED even uncaptured).
+  const capId = pp.captures?.[0]?.id;
+  const dc = capId ? await paypalDirect(`/v2/payments/captures/${capId}`) : null;
+  const da = await paypalDirect(`/v2/payments/authorizations/${await authorizationId(p.id)}`);
+  rec(F, "direct PayPal GETs (own token): authorization CAPTURED, capture COMPLETED 1800.00", da.data?.status === "CAPTURED" && dc?.data?.status === "COMPLETED" && dc?.data?.amount?.value === "1800.00", { authorization: da.data?.status, capture: dc?.data?.status, amount: dc?.data?.amount?.value, debug_ids: [da.debug_id, dc?.debug_id] });
+  rec(F, "captured once for the confirmed amount: authorization CAPTURED + one capture COMPLETED $1,800 (independent GET)", p.state === "CAPTURED" && pp.authorizations?.[0]?.status === "CAPTURED" && pp.captures?.length === 1 && pp.captures[0].status === "COMPLETED" && pp.captures[0].amount?.value === "1800.00", { state: p.state, order_status_not_used_as_proof: pp.order?.status, authorization: pp.authorizations?.[0]?.status, captures: pp.captures?.map((c: any) => `${c.status} ${c.amount?.value}`) });
 }
 
 // ---- A: AI agent, same engine ---------------------------------------------------------------------

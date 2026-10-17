@@ -2,7 +2,7 @@
 // compiler that produces the draft from free text; Stage 3 accepts a structured policy.
 
 import { and, eq } from "drizzle-orm";
-import { PolicyV1, newId, policyDigest } from "@witness/core";
+import { newId, parseIntentPolicy, policyDigest } from "@witness/core";
 import { QUEUES, appendAudit, enqueue, recordDecision, schema, transition, withTx } from "@witness/db";
 import { UnavailableLlm, compileIntent } from "@witness/ai";
 import { nowOf, type EngineDeps } from "./deps.ts";
@@ -22,7 +22,7 @@ export function intentView(i: IntentRow) {
     source_text: i.sourceText,
     policy: i.policy,
     /** False while a compiled draft still has gaps the shopper must fill before confirming. */
-    complete: PolicyV1.safeParse(i.policy).success,
+    complete: parseIntentPolicy(i.policy).success,
     policy_digest: i.policyDigest,
     ambiguities: i.ambiguities,
     compiler: i.compiler,
@@ -53,7 +53,7 @@ export async function compileAndCreateIntent(d: EngineDeps, tenantId: string, sh
 }
 
 export async function createIntent(d: EngineDeps, tenantId: string, shopperId: string, input: { policy: unknown; source_text?: string }): Promise<IntentResult> {
-  const parsed = PolicyV1.safeParse(input.policy);
+  const parsed = parseIntentPolicy(input.policy);
   if (!parsed.success) return fail(422, "Invalid policy", parsed.error.issues.map((i) => `${i.path.join(".") || "(policy)"}: ${i.message}`).join("; "));
   return withTx(d.pool, async (tx) => {
     const shopper = (await tx.db.select().from(shoppers).where(and(eq(shoppers.id, shopperId), eq(shoppers.tenantId, tenantId))).limit(1))[0];
@@ -78,7 +78,7 @@ export async function confirmIntent(d: EngineDeps, tenantId: string, shopperId: 
     const i = (await tx.db.select().from(intents).where(and(eq(intents.id, id), eq(intents.tenantId, tenantId))).for("update").limit(1))[0];
     if (!i || (shopperId && i.shopperId !== shopperId)) return fail(404, "Intent not found", id);
     if (i.status !== "DRAFT") return fail(409, "Intent is not a draft", `intent ${id} is ${i.status}`);
-    const parsed = PolicyV1.safeParse(edited ?? i.policy);
+    const parsed = parseIntentPolicy(edited ?? i.policy);
     if (!parsed.success) return fail(422, "Invalid policy", parsed.error.issues.map((x) => `${x.path.join(".")}: ${x.message}`).join("; "));
     const digest = policyDigest(parsed.data);
     const [row] = await tx.db

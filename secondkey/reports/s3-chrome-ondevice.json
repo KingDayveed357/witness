@@ -1,0 +1,74 @@
+{
+  "ran_at": "2026-10-17T05:55:05.329Z",
+  "note": "isolated temporary Chrome profile; on-device recognition; synthetic disclosed audio as fake microphone",
+  "version": "Chrome/155.0.8059.80",
+  "before": "downloadable",
+  "install_result": "true",
+  "after": "available",
+  "install_seconds": 57,
+  "fake_microphone": {
+    "events": [
+      "start@9",
+      "audiostart@1611",
+      "speechstart@2411",
+      "speechend@34313",
+      "audioend@34313",
+      "end@37535"
+    ],
+    "finals": [],
+    "first_word_ms": 25113,
+    "last_final_ms": null,
+    "transcript": "",
+    "wer": null,
+    "critical_phrases_found": []
+  },
+  "start_with_track": {
+    "events": [
+      "start(track)-accepted",
+      "start@1092",
+      "audiostart@1418",
+      "speechstart@2360",
+      "speechend@36198",
+      "audioend@36199",
+      "end@36336"
+    ],
+    "finals": [
+      {
+        "ms": 4283,
+        "text": "Grandma"
+      },
+      {
+        "ms": 7836,
+        "text": " Danny"
+      },
+      {
+        "ms": 12959,
+        "text": " I got arrested after a car accident"
+      },
+      {
+        "ms": 16793,
+        "text": " You sound different"
+      },
+      {
+        "ms": 20113,
+        "text": " That's why"
+      },
+      {
+        "ms": 26421,
+        "text": " 100 for bail right now or they keep me overnight"
+      },
+      {
+        "ms": 29323,
+        "text": " Mom"
+      }
+    ],
+    "first_word_ms": 2361,
+    "last_final_ms": 29323,
+    "transcript": "Grandma  Danny  I got arrested after a car accident  You sound different  That's why  100 for bail right now or they keep me overnight  Mom",
+    "wer": 0.529,
+    "critical_phrases_found": [
+      "bail",
+      "right now"
+    ]
+  }
+}

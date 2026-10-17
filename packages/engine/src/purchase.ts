@@ -3,8 +3,6 @@
 
 import { and, eq, notInArray } from "drizzle-orm";
 import {
-  PolicyV1,
-  PurchaseRequest,
   authorizationDiffs,
   authorizationOf,
   canonicalJson,
@@ -13,10 +11,11 @@ import {
   expectedItems,
   fromCents,
   newId,
+  parseIntentPolicy,
+  parsePaymentRequest,
   paypalRequestId,
-  resolveCart,
-  screenCart,
   screenOutcome,
+  screenPayment,
   sha256Hex,
   threeWayMatch,
   type Check,
@@ -39,7 +38,7 @@ import {
   type PurchaseRow,
   type Tx,
 } from "@witness/db";
-import { UnavailableLlm, aiScreen, settleDeferred } from "@witness/ai";
+import { UnavailableLlm, screenPaymentAi, settleDeferred, type AiSubject } from "@witness/ai";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { DEFAULT_ADAPTERS, logOf, nowOf, type EngineDeps, type Principal } from "./deps.ts";
 
@@ -102,7 +101,7 @@ async function readPurchase(d: EngineDeps, tenantId: string, id: string): Promis
 }
 
 export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyKey: string, body: unknown, opts: { adapter?: string } = {}): Promise<SubmitResult> {
-  const parsed = PurchaseRequest.safeParse(body);
+  const parsed = parsePaymentRequest(body);
   if (!parsed.success) return err(422, "Invalid purchase request", parsed.error.issues.map((i) => `${i.path.join(".") || "(body)"}: ${i.message}`).join("; "));
   const req = parsed.data;
   const adapterName = opts.adapter ?? "standard";
@@ -126,9 +125,10 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
   const existing = await findExisting();
   if (existing) return replay(existing);
 
-  // Facts are fetched by Witness, from the catalog, by canonical ID: never from the agent.
-  const ids = [...new Set(req.lines.map((l) => l.product_id))];
-  const catalog = await d.catalog.getProducts(ids);
+  // Facts are fetched by Witness, from the catalog, by canonical ID: never from the agent. A
+  // transfer has no catalog facts: its cart is derived from the intent the payer confirmed.
+  const ids = req.kind === "transfer" ? [] : [...new Set(req.lines.map((l) => l.product_id))];
+  const catalog = ids.length ? await d.catalog.getProducts(ids) : { facts: new Map() };
   const now = nowOf(d);
 
   const step = await withTx(d.pool, async (tx) => {
@@ -142,7 +142,8 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     )[0];
     if (!intent) return err(404, "Intent not found", req.intent_id);
     if (intent.status !== "CONFIRMED") return err(409, "Intent is not confirmed", `intent ${intent.id} is ${intent.status}`);
-    const policy = PolicyV1.parse(intent.policy);
+    const policy = parseIntentPolicy(intent.policy);
+    if (!policy.success) return err(409, "Intent policy is invalid", `intent ${intent.id} can't be used`);
 
     const used = await tx.db
       .select({ id: purchases.id })
@@ -174,13 +175,16 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
       tenantId: who.tenantId,
       purchaseId,
       eventType: "purchase.submitted",
-      payload: { intent_id: intent.id, intent_version: intent.version, policy_digest: intent.policyDigest, agent: who.principal, retailer: req.retailer, lines: req.lines, adapter: adapterName },
+      payload:
+        req.kind === "transfer"
+          ? { intent_id: intent.id, intent_version: intent.version, policy_digest: intent.policyDigest, agent: who.principal, kind: "transfer", payee_id: req.payee_id, amount_cents: req.amount_cents, currency: req.currency, adapter: adapterName }
+          : { intent_id: intent.id, intent_version: intent.version, policy_digest: intent.policyDigest, agent: who.principal, retailer: req.retailer, lines: req.lines, adapter: adapterName },
     });
 
-    const { cart, checks: resolveChecks } = resolveCart(req, catalog.facts);
-    const all: Check[] = [...resolveChecks];
+    const screened = screenPayment(policy.data, req, catalog.facts, { now, purchasesUsed: used.length });
+    const cart = screened.cart;
+    const all: Check[] = [...screened.checks];
     if (!shopper?.vaultId) all.push({ id: "shopper.vault", result: "fail", detail: "shopper has no saved PayPal wallet" });
-    if (cart) all.push(...screenCart(policy, cart, { now, purchasesUsed: used.length }));
 
     const facts = Object.fromEntries(catalog.facts);
     const rejected = screenOutcome(all) === "REJECT" || !cart;
@@ -188,7 +192,7 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     // always reflect the effective decision.
     await recordChecks(tx, purchaseId, "SCREEN", rejected ? all : all.filter((c) => !c.defers_to));
     if (rejected) {
-      await rejectScreened(tx, who.tenantId, purchaseId, all, { retailer: req.retailer, facts, cart: cart ?? null, amountCents: cart?.total_cents ?? null, currency: cart?.currency ?? null });
+      await rejectScreened(tx, who.tenantId, purchaseId, all, { retailer: cart?.retailer ?? (req.kind === "transfer" ? null : req.retailer), facts, cart: cart ?? null, amountCents: cart?.total_cents ?? null, currency: cart?.currency ?? null });
       return { purchaseId, next: false as const };
     }
     // Deterministic screen passed. Keep the purchase in SCREENING (it already counts against the
@@ -196,9 +200,10 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
     const digest = cartDigest(cart.currency, expectedItems(cart));
     await tx.db
       .update(purchases)
-      .set({ retailer: req.retailer, facts, cart, cartDigest: digest, amountCents: cart.total_cents, currency: cart.currency, updatedAt: new Date() })
+      .set({ retailer: cart.retailer, facts, cart, cartDigest: digest, amountCents: cart.total_cents, currency: cart.currency, updatedAt: new Date() })
       .where(eq(purchases.id, purchaseId));
-    return { purchaseId, next: true as const, cart, policy, deterministic: all, digest };
+    const subject: AiSubject = policy.data.kind === "transfer" ? { kind: "transfer" } : { kind: "shopping", policy: policy.data, cart, facts: catalog.facts, deterministic: all };
+    return { purchaseId, next: true as const, subject, deterministic: all, digest };
   });
 
   if ("kind" in step) return step;
@@ -209,7 +214,7 @@ export async function submitPurchase(d: EngineDeps, who: Principal, idempotencyK
   if (step.next) {
     // AI checks run outside any transaction. They can only make the decision stricter, and any
     // failure (including no provider configured) is "unknown", which becomes HOLD.
-    const aiChecks = await aiScreen(d.ai ?? new UnavailableLlm(), step.policy, step.cart, catalog.facts, step.deterministic, req.conversation);
+    const aiChecks = await screenPaymentAi(d.ai ?? new UnavailableLlm(), step.subject, req.conversation);
     const proceed = await withTx(d.pool, async (tx) => {
       const locked = (await tx.db.select().from(purchases).where(eq(purchases.id, step.purchaseId)).for("update").limit(1))[0];
       if (!locked || locked.state !== "SCREENING") return false;

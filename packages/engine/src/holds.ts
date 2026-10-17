@@ -3,7 +3,11 @@
 // single-use approval: a human can resolve an ambiguity, but never a mismatch with PayPal.
 //
 // Two ways to decide: as the signed-in shopper, or with a one-time link token (for a phone). The
-// token is stored only as a SHA-256 hash, is single use, and expires at the auto-void deadline.
+// token is stored only as a SHA-256 hash and is bound to one purchase. Two separate clocks:
+//   - the HOLD lasts until auto_void_at (default 72 h after authorization), then the money is released;
+//   - a LINK lasts holdLinkMs (default 30 min, never past auto_void_at). Re-issuing replaces it.
+// A link decides once. Retrying the same decision returns the recorded result (idempotent); the
+// opposite decision gets 409. The spent link can still show the outcome until it expires.
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
@@ -31,6 +35,10 @@ export interface HoldView {
   retailer: string | null;
   auto_void_at: string | null;
   resolution: string | null;
+  /** When the link used for this request stops working (null for signed-in actors). */
+  link_expires_at: string | null;
+  /** True when this response replays a decision already recorded for the same choice. */
+  replayed?: boolean;
 }
 
 async function load(d: EngineDeps, purchaseId: string) {
@@ -42,7 +50,7 @@ async function load(d: EngineDeps, purchaseId: string) {
   return { p, h, i };
 }
 
-function view(p: PurchaseRow, h: typeof holds.$inferSelect | null): HoldView {
+function view(p: PurchaseRow, h: typeof holds.$inferSelect | null, viaLink = false): HoldView {
   const cart = p.cart as ResolvedCart | null;
   return {
     purchase_id: p.id,
@@ -53,8 +61,12 @@ function view(p: PurchaseRow, h: typeof holds.$inferSelect | null): HoldView {
     retailer: p.retailer,
     auto_void_at: h?.autoVoidAt.toISOString() ?? null,
     resolution: h?.resolution ?? null,
+    link_expires_at: viaLink ? (h?.tokenExpiresAt?.toISOString() ?? null) : null,
   };
 }
+
+const RESOLUTION_OF = { approve: "APPROVED", deny: "DENIED" } as const;
+const DEFAULT_LINK_MS = 30 * 60_000;
 
 /** Check the actor may act on this hold. Tenant scoping is done by the caller for shopper/admin. */
 function authorize(actor: HoldActor, ctx: NonNullable<Awaited<ReturnType<typeof load>>>, now: Date): HoldResult<string> {
@@ -65,7 +77,7 @@ function authorize(actor: HoldActor, ctx: NonNullable<Awaited<ReturnType<typeof 
   const a = Buffer.from(sha(actor.token), "hex");
   const b = Buffer.from(h.tokenHash, "hex");
   if (a.length !== b.length || !timingSafeEqual(a, b)) return bad(403, "Invalid link");
-  if (h.tokenExpiresAt.getTime() < now.getTime() || h.resolvedAt) return bad(410, "This link has expired or was already used");
+  if (h.tokenExpiresAt.getTime() <= now.getTime()) return bad(410, "This link has expired", "Ask for a new link; the payment stays held until it is released automatically");
   return { kind: "ok", value: `shopper:${ctx.i.shopperId}(link)` };
 }
 
@@ -74,7 +86,7 @@ export async function getHold(d: EngineDeps, purchaseId: string, actor: HoldActo
   if (!ctx || (tenantId && ctx.p.tenantId !== tenantId) || !ctx.h) return bad(404, "Hold not found");
   const ok = authorize(actor, ctx, nowOf(d));
   if (ok.kind === "error") return ok;
-  return { kind: "ok", value: view(ctx.p, ctx.h) };
+  return { kind: "ok", value: view(ctx.p, ctx.h, "token" in actor) };
 }
 
 /** Create (or replace) the one-time link token. Returned once; only its hash is stored. */
@@ -83,10 +95,12 @@ export async function issueHoldLink(d: EngineDeps, tenantId: string, purchaseId:
   if (!ctx || ctx.p.tenantId !== tenantId || !ctx.h) return bad(404, "Hold not found");
   const ok = authorize(actor, ctx, nowOf(d));
   if (ok.kind === "error") return ok;
-  if (ctx.p.state !== "HELD") return bad(409, `Purchase is ${ctx.p.state}`);
+  if (ctx.p.state !== "HELD" || ctx.h.resolvedAt) return bad(409, `Purchase is ${ctx.p.state}`);
   const token = randomBytes(24).toString("base64url");
-  await dbOf(d.pool).update(holds).set({ tokenHash: sha(token), tokenExpiresAt: ctx.h.autoVoidAt, notifiedAt: nowOf(d) }).where(eq(holds.purchaseId, purchaseId));
-  return { kind: "ok", value: { token, expires_at: ctx.h.autoVoidAt.toISOString() } };
+  const now = nowOf(d);
+  const expires = new Date(Math.min(now.getTime() + (d.holdLinkMs ?? DEFAULT_LINK_MS), ctx.h.autoVoidAt.getTime()));
+  await dbOf(d.pool).update(holds).set({ tokenHash: sha(token), tokenExpiresAt: expires, notifiedAt: now }).where(eq(holds.purchaseId, purchaseId));
+  return { kind: "ok", value: { token, expires_at: expires.toISOString() } };
 }
 
 export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "approve" | "deny", actor: HoldActor, tenantId?: string): Promise<HoldResult<HoldView>> {
@@ -94,7 +108,12 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
   if (!ctx || (tenantId && ctx.p.tenantId !== tenantId) || !ctx.h) return bad(404, "Hold not found");
   const who = authorize(actor, ctx, nowOf(d));
   if (who.kind === "error") return who;
-  if (ctx.p.state !== "HELD") return bad(409, `Purchase is ${ctx.p.state}`);
+  const viaLink = "token" in actor;
+  // Already decided: a retry of the same choice gets the recorded result; anything else is a conflict.
+  if (ctx.h.resolvedAt || ctx.p.state !== "HELD") {
+    if (ctx.h.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(ctx.p, ctx.h, viaLink), replayed: true } };
+    return bad(409, "Already decided", `The hold was resolved as ${ctx.h.resolution ?? ctx.p.state}; the purchase is ${ctx.p.state}`);
+  }
   const p0 = ctx.p;
 
   // Approval: PayPal's order must still match exactly (it may have changed while held).
@@ -122,7 +141,7 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
     const stale = intent.status !== "CONFIRMED" || intent.policyDigest !== p.policyDigest;
     const now = nowOf(d);
     const voidWith = async (reasons: string[], resolution: "APPROVED" | "DENIED") => {
-      await tx.db.update(holds).set({ resolvedAt: now, resolution, tokenHash: null }).where(eq(holds.purchaseId, p.id));
+      await tx.db.update(holds).set({ resolvedAt: now, resolution }).where(eq(holds.purchaseId, p.id));
       await recordDecision(tx, p.id, "VOID", reasons, who.value);
       await transition(tx, { tenantId: p.tenantId, purchaseId: p.id, from: "HELD", to: "VOIDING", event: "purchase.void_decided", payload: { reasons, decided_by: who.value }, patch: { outcome: "VOID", reasons } });
       await enqueue(d.boss, tx, QUEUES.void, { tenantId: p.tenantId, purchaseId: p.id }, { singletonKey: `void:${p.id}` });
@@ -134,12 +153,16 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
       return voidWith(diffs, "APPROVED");
     }
     if (stale) return voidWith([`intent ${intent.id} is ${intent.status}; approval refused`], "APPROVED");
-    await tx.db.update(holds).set({ resolvedAt: now, resolution: "APPROVED", tokenHash: null }).where(eq(holds.purchaseId, p.id));
+    await tx.db.update(holds).set({ resolvedAt: now, resolution: "APPROVED" }).where(eq(holds.purchaseId, p.id));
     const tenant = (await tx.db.select().from(tenants).where(eq(tenants.id, p.tenantId)).limit(1))[0]!;
     await issueApproval(d, tx, p, tenant.paypalMerchantId, "HELD", who.value);
   });
 
   const after = await load(d, purchaseId);
-  if (!applied) return bad(409, "Already decided", `Another decision was recorded first; the purchase is ${after!.p.state}`);
-  return { kind: "ok", value: view(after!.p, after!.h) };
+  if (!applied) {
+    // Lost a race. Same choice as the winner (a double tap) → the recorded result; otherwise 409.
+    if (after!.h?.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(after!.p, after!.h, viaLink), replayed: true } };
+    return bad(409, "Already decided", `Another decision was recorded first; the purchase is ${after!.p.state}`);
+  }
+  return { kind: "ok", value: view(after!.p, after!.h, viaLink) };
 }

@@ -1,0 +1,16 @@
+{
+  "source": "ondevice",
+  "lines": 7,
+  "risk": "high",
+  "intervention": "HOLD_FOR_TRUSTED_CONTACT",
+  "confidence": 0.9,
+  "evidence": [
+    "impersonation: \"Grandma\"",
+    "impersonation: \"You sound different\"",
+    "threat: \"or they keep me overnight\"",
+    "urgency: \"100 for bail right now\"",
+    "authority_pressure: \"I got arrested after a car accident\""
+  ],
+  "ungrounded": [],
+  "cost_usd": 0.000514
+}

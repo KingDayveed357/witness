@@ -217,15 +217,45 @@ export async function aiScreen(
 ): Promise<Check[]> {
   const lineFacts = cart.lines.map((l) => facts.get(l.product_id)).filter((f): f is ProductFacts => Boolean(f));
   const implicit = deterministic.some((c) => c.defers_to === "ai.soft:category") && policy.category ? [{ id: "category", text: `is a ${policy.category}` }] : [];
-  // A Second Key transfer has no merchant listing to verify (the platform wrote the payee record), so
-  // only merchant products get listing checks. Stopgap until transfers are their own request type.
-  const listings = lineFacts.filter((f) => !(f.source === "fixture" && f.category?.startsWith("Transfers >")));
   const [injection, soft, manipulation] = await Promise.all([
     checkInjection(ai, lineFacts),
-    listings.length ? verifyListing(ai, policy, listings, implicit) : [],
+    verifyListing(ai, policy, lineFacts, implicit),
     conversation ? checkManipulation(ai, conversation) : null,
   ]);
   return [injection, ...soft, ...(manipulation ? [manipulation] : [])];
+}
+
+/** What the AI layer screens: a shopping cart (with its listings) or a transfer (ADR-0016). */
+export type AiSubject =
+  | { kind: "shopping"; policy: PolicyV1; cart: ResolvedCart; facts: Map<string, ProductFacts>; deterministic: Check[] }
+  | { kind: "transfer" };
+
+/** AI checks that must be present for a payment of this kind; a missing one holds it. */
+export function requiredAiChecks(kind: "shopping" | "transfer", hasConversation: boolean): string[] {
+  const ids = kind === "shopping" ? ["ai.injection"] : [];
+  if (kind === "transfer" || hasConversation) ids.push("ai.manipulation");
+  return ids;
+}
+
+/** Add an "unknown" (HOLD) check for every required AI check that did not run. */
+export function enforceRequired(required: string[], checks: Check[]): Check[] {
+  const missing = required.filter((id) => !checks.some((c) => c.id === id));
+  return [...checks, ...missing.map((id) => ({ id, result: "unknown" as const, detail: `required check ${id} did not run; held for review`, kind: "ai" as const }))];
+}
+
+/**
+ * The AI screen for any payment. Shopping gets the listing checks; a transfer has no listing, so it
+ * gets only the shared manipulation check, which is required for every transfer. Whatever runs,
+ * the required set is enforced afterwards, so a skipped check becomes a HOLD, never a pass.
+ */
+export async function screenPaymentAi(ai: LlmClient, subject: AiSubject, conversation?: Conversation): Promise<Check[]> {
+  const checks =
+    subject.kind === "shopping"
+      ? await aiScreen(ai, subject.policy, subject.cart, subject.facts, subject.deterministic, conversation)
+      : conversation
+        ? [await checkManipulation(ai, conversation)]
+        : [];
+  return enforceRequired(requiredAiChecks(subject.kind, Boolean(conversation)), checks);
 }
 
 /**

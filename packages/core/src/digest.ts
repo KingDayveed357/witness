@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 import canonicalize from "canonicalize";
-import type { PolicyV1 } from "./policy.ts";
+import type { IntentPolicy } from "./policy.ts";
 
 export function canonicalJson(value: unknown): string {
   const out = canonicalize(value);
@@ -26,6 +26,6 @@ export function cartDigest(currency: string, items: CartItemKey[]): string {
   return "sha256:" + sha256Hex(canonicalJson({ currency, items: sorted }));
 }
 
-export function policyDigest(policy: PolicyV1): string {
+export function policyDigest(policy: IntentPolicy): string {
   return "sha256:" + sha256Hex(canonicalJson(policy));
 }

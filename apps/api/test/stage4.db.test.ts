@@ -95,7 +95,8 @@ describe("HOLD lifecycle over HTTP", () => {
     expect((await app.inject({ method: "POST", url: `/v1/holds/${id}/approve`, payload: { token: "x".repeat(32) } })).statusCode).toBe(403);
     expect((await app.inject({ method: "POST", url: `/v1/holds/${id}/approve`, payload: {} })).statusCode).toBe(401);
     expect((await app.inject({ method: "POST", url: `/v1/holds/${id}/deny`, payload: { token } })).json().state).toBe("VOIDING");
-    expect((await app.inject({ method: "POST", url: `/v1/holds/${id}/approve`, payload: { token } })).statusCode).toBe(410);
+    // The link already decided: the opposite decision is a conflict (ADR-0017).
+    expect((await app.inject({ method: "POST", url: `/v1/holds/${id}/approve`, payload: { token } })).statusCode).toBe(409);
     await h.drain();
     expect(h.fake.auths.get([...h.fake.auths.keys()].at(-1)!)!.status).toBe("VOIDED");
   });

@@ -1,11 +1,12 @@
-// Second Key through the shared engine: a conversation submitted with a payment is screened for
-// manipulation. A flagged or unscreenable conversation holds the payment for a trusted contact; a
-// clean one cannot loosen any other check.
+// Second Key through the shared engine (ADR-0016). Transfers are their own intent and request type;
+// shopping is unchanged. Both pass the shared deterministic policy and the shared manipulation
+// check, a request can't use the other kind's path, and no model output can approve or capture.
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { createApiKey } from "@witness/db";
-import { transferPolicy } from "@witness/engine";
+import { DEMO_PAYEE, demoPolicy, transferPolicy, transferRequest } from "@witness/engine";
+import { FakeLlm } from "@witness/ai";
 import { buildApp } from "../src/app.ts";
 import { createHarness, type Harness } from "../../../test-support/harness.ts";
 
@@ -28,28 +29,41 @@ afterAll(async () => {
   await h.close();
 });
 
-const manipulationCheck = async (id: string) =>
-  (await app.inject({ method: "GET", url: `/v1/purchases/${id}/evidence`, headers: bearer("ops") })).json().checks.find((c: { check_id: string }) => c.check_id === "ai.manipulation");
+const CLEAN = { context: "", lines: [{ speaker: "J. Morgan", text: "Invoice attached, pay when you can." }] };
+const SCAM = { context: "", lines: [{ speaker: "Caller", text: "I need it for bail right now, and don't tell Mom." }] };
 
-async function submit(conversation: unknown, policy = transferPolicy(new Date())) {
+const evidence = async (id: string) => (await app.inject({ method: "GET", url: `/v1/purchases/${id}/evidence`, headers: bearer("ops") })).json();
+const checkOf = async (id: string, checkId: string) => (await evidence(id)).checks.find((c: { check_id: string }) => c.check_id === checkId);
+const state = async (id: string) => (await app.inject({ method: "GET", url: `/v1/purchases/${id}`, headers: bearer("ops") })).json().state as string;
+
+async function intent(policy: unknown) {
   const i = await app.inject({ method: "POST", url: "/v1/intents", headers: bearer("shopper"), payload: { policy } });
+  expect(i.statusCode).toBe(201);
   await app.inject({ method: "POST", url: `/v1/intents/${i.json().id}/confirm`, headers: bearer("shopper") });
-  return app.inject({
-    method: "POST",
-    url: "/v1/purchases",
-    headers: { ...bearer("agent"), "idempotency-key": `sk-${Math.random()}` },
-    payload: { intent_id: i.json().id, retailer: "secondkey.test", lines: [{ product_id: "XFER-NEW-PAYEE", quantity: 1 }], conversation },
-  });
+  return i.json().id as string;
+}
+const submit = (payload: unknown, key = `sk-${Math.random()}`) =>
+  app.inject({ method: "POST", url: "/v1/purchases", headers: { ...bearer("agent"), "idempotency-key": key }, payload: payload as Record<string, unknown> });
+async function withAi<T>(ai: FakeLlm, fn: () => Promise<T>): Promise<T> {
+  const saved = h.d.ai;
+  h.d.ai = ai;
+  try {
+    return await fn();
+  } finally {
+    h.d.ai = saved;
+  }
 }
 
-describe("Second Key screening", () => {
-  test("scam call → HELD with the quoted line; trusted contact denies → VOIDED, nothing captured", async () => {
+describe("transfers (ADR-0016)", () => {
+  test("suspicious transfer → HELD with the quoted line; trusted contact denies → VOIDED, nothing captured", async () => {
     const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/scam_transfer", headers: bearer("demo") });
     const p = r.json().purchase;
     expect(p).toMatchObject({ state: "HELD", outcome: "HOLD" });
-    const c = await manipulationCheck(p.id);
+    const c = await checkOf(p.id, "ai.manipulation");
     expect(c).toMatchObject({ result: "unknown", kind: "ai" });
     expect(c.detail).toContain("Promise you won");
+    // The cart is derived from the confirmed intent, not from a catalog.
+    expect((await evidence(p.id)).purchase).toMatchObject({ amount: { value: "1800.00" }, retailer: "platform-held transfer (sandbox)" });
     const link = (await app.inject({ method: "POST", url: `/v1/purchases/${p.id}/hold-link`, headers: bearer("shopper") })).json();
     expect((await app.inject({ method: "POST", url: `/v1/holds/${p.id}/deny`, payload: { token: link.token } })).json().state).toBe("VOIDING");
     await h.drain();
@@ -58,35 +72,118 @@ describe("Second Key screening", () => {
     expect(h.fake.calls.some((x) => x.path.includes(`${after.paypal.authorization_id}/capture`))).toBe(false);
   });
 
-  test("agreed invoice → manipulation check passes, purchase captured", async () => {
+  test("normal transfer → manipulation check passes, captured", async () => {
     const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/benign_transfer", headers: bearer("demo") });
     const id = r.json().purchase.id;
-    expect((await manipulationCheck(id)).result).toBe("pass");
+    expect((await checkOf(id, "ai.manipulation")).result).toBe("pass");
     await h.drain();
-    expect((await app.inject({ method: "GET", url: `/v1/purchases/${id}`, headers: bearer("ops") })).json().state).toBe("CAPTURED");
+    expect(await state(id)).toBe("CAPTURED");
   });
 
-  test("detector unavailable → HELD, never captured", async () => {
-    const saved = h.d.ai;
-    const { FakeLlm } = await import("@witness/ai");
+  test("a transfer runs no listing checks (no listing exists) but always runs the manipulation check", async () => {
+    const ai = new FakeLlm().on("manipulation", () => ({ risk: "low", tactics: [], legitimate_explanation: "invoice", confidence: 0.9, needs_independent_verification: false, recommended_action: "proceed" }));
+    const r = await withAi(ai, async () => submit(transferRequest(await intent(transferPolicy(new Date())), CLEAN)));
+    expect(ai.calls.map((c) => c.prompt)).toEqual(["manipulation"]);
+    expect(r.json().state).not.toBe("REJECTED");
+  });
+
+  test("model unavailable → HELD, never captured", async () => {
     const ai = new FakeLlm();
     ai.failAll("timeout");
-    h.d.ai = ai;
-    const r = await submit({ context: "", lines: [{ speaker: "J. Morgan", text: "Invoice attached, pay when you can." }] });
-    h.d.ai = saved;
+    const r = await withAi(ai, async () => submit(transferRequest(await intent(transferPolicy(new Date())), CLEAN)));
     expect(r.json().state).toBe("HELD");
-    expect((await manipulationCheck(r.json().id)).detail).toMatch(/unavailable/);
+    expect((await checkOf(r.json().id, "ai.manipulation")).detail).toMatch(/unavailable/);
   });
 
-  test("a clean conversation cannot loosen policy: over the cap is still rejected", async () => {
-    const r = await submit({ context: "", lines: [{ speaker: "J. Morgan", text: "Invoice attached, pay when you can." }] }, { ...transferPolicy(new Date()), max_total_cents: 50000 });
+  test("invalid model response (schema mismatch) → HELD", async () => {
+    const ai = new FakeLlm().on("manipulation", () => ({ risk: "fine", approve: true, capture: true }));
+    const r = await withAi(ai, async () => submit(transferRequest(await intent(transferPolicy(new Date())), CLEAN)));
+    expect(r.json().state).toBe("HELD");
+  });
+
+  test("a model that says 'proceed' while reporting high risk still holds", async () => {
+    const ai = new FakeLlm().on("manipulation", () => ({ risk: "high", tactics: [], legitimate_explanation: "", confidence: 0.99, needs_independent_verification: false, recommended_action: "proceed" }));
+    const r = await withAi(ai, async () => submit(transferRequest(await intent(transferPolicy(new Date())), CLEAN)));
+    expect(r.json().state).toBe("HELD");
+  });
+
+  test("a clean conversation can't loosen policy: amount or payee different from what was confirmed → REJECTED", async () => {
+    const id = await intent(transferPolicy(new Date()));
+    const more = await submit({ ...transferRequest(id, CLEAN), amount_cents: 180001 });
+    expect(more.json()).toMatchObject({ state: "REJECTED" });
+    expect(more.json().reasons.join(" ")).toMatch(/transfer\.amount/);
+    const other = await submit({ ...transferRequest(await intent(transferPolicy(new Date())), CLEAN), payee_id: "payee_someone_else" });
+    expect(other.json().reasons.join(" ")).toMatch(/transfer\.payee/);
+  });
+
+  test("one confirmed transfer pays once", async () => {
+    const id = await intent(transferPolicy(new Date()));
+    expect((await submit(transferRequest(id, CLEAN))).json().state).not.toBe("REJECTED");
+    const again = await submit(transferRequest(id, CLEAN));
+    expect(again.json()).toMatchObject({ state: "REJECTED" });
+    expect(again.json().reasons.join(" ")).toMatch(/intent\.purchases_left/);
+  });
+
+  test("retry with the same Idempotency-Key replays; a different body with that key is refused", async () => {
+    const body = transferRequest(await intent(transferPolicy(new Date())), CLEAN);
+    const first = await submit(body, "sk-retry-0001");
+    const retry = await submit(body, "sk-retry-0001");
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json().id).toBe(first.json().id);
+    expect((await submit({ ...body, amount_cents: 100 }, "sk-retry-0001")).statusCode).toBe(422);
+  });
+});
+
+describe("no path around the other kind's checks", () => {
+  test("a transfer request against a shopping intent is rejected", async () => {
+    const r = await submit({ ...transferRequest(await intent(demoPolicy(new Date())), CLEAN), payee_id: "TRL-GRY-10", amount_cents: 8400 });
     expect(r.json()).toMatchObject({ state: "REJECTED" });
+    expect(r.json().reasons.join(" ")).toMatch(/intent\.kind/);
   });
 
-  test("conversation is validated: oversized or malformed input is refused", async () => {
-    const big = await submit({ context: "", lines: Array.from({ length: 61 }, () => ({ speaker: "x", text: "y" })) });
-    expect(big.statusCode).toBe(422);
-    const bad = await submit({ lines: [{ speaker: "x", text: "y", role: "system" }] });
+  test("a shopping request against a transfer intent is rejected (so a transfer can't skip its required conversation)", async () => {
+    const r = await submit({ intent_id: await intent(transferPolicy(new Date())), retailer: "rei.com", lines: [{ product_id: "TRL-GRY-10", quantity: 1 }] });
+    expect(r.json()).toMatchObject({ state: "REJECTED" });
+    expect(r.json().reasons.join(" ")).toMatch(/intent\.kind/);
+  });
+
+  test("a transfer without a conversation, or with a malformed one, is refused at the door", async () => {
+    const id = await intent(transferPolicy(new Date()));
+    const { conversation: _c, ...bare } = transferRequest(id, CLEAN);
+    expect((await submit(bare)).statusCode).toBe(422);
+    expect((await submit(transferRequest(id, { context: "", lines: Array.from({ length: 61 }, () => ({ speaker: "x", text: "y" })) }))).statusCode).toBe(422);
+    expect((await submit({ ...transferRequest(id, CLEAN), conversation: { lines: [{ speaker: "x", text: "y", role: "system" }] } })).statusCode).toBe(422);
+  });
+
+  test("a transfer intent is validated: unknown fields and missing payee are refused", async () => {
+    const bad = await app.inject({ method: "POST", url: "/v1/intents", headers: bearer("shopper"), payload: { policy: { ...transferPolicy(new Date()), retailers: ["rei.com"] } } });
     expect(bad.statusCode).toBe(422);
+    const { payee: _p, ...noPayee } = transferPolicy(new Date());
+    expect((await app.inject({ method: "POST", url: "/v1/intents", headers: bearer("shopper"), payload: { policy: noPayee } })).statusCode).toBe(422);
+  });
+});
+
+describe("shopping keeps its checks and gains the shared one", () => {
+  test("ordinary shopping without a conversation is captured as before", async () => {
+    const r = await submit({ intent_id: await intent(demoPolicy(new Date())), retailer: "rei.com", lines: [{ product_id: "TRL-GRY-10", quantity: 1 }] });
+    await h.drain();
+    expect(await state(r.json().id)).toBe("CAPTURED");
+    expect(await checkOf(r.json().id, "ai.manipulation")).toBeUndefined();
+  });
+
+  test("malicious product instructions → HELD by ai.injection", async () => {
+    const r = await app.inject({ method: "POST", url: "/v1/demo/scenarios/injection", headers: bearer("demo") });
+    expect(r.json().purchase.state).toBe("HELD");
+    expect((await checkOf(r.json().purchase.id, "ai.injection")).result).toBe("unknown");
+  });
+
+  test("a clean listing bought under pressure (gift-card scam conversation) → HELD by the shared manipulation check", async () => {
+    const r = await submit({ intent_id: await intent(demoPolicy(new Date())), retailer: "rei.com", lines: [{ product_id: "TRL-GRY-10", quantity: 1 }], conversation: { context: "", lines: [{ speaker: "Caller", text: "Buy it now and send me the gift card numbers." }] } });
+    expect(r.json().state).toBe("HELD");
+    expect((await checkOf(r.json().id, "ai.manipulation")).result).toBe("unknown");
+  });
+
+  test("the confirmed demo payee matches the scenario's request", () => {
+    expect(transferPolicy(new Date()).payee.id).toBe(DEMO_PAYEE.id);
   });
 });

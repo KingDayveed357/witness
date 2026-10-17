@@ -33,6 +33,7 @@ const app = buildApp({
       ? new AnthropicProvider({ apiKey: cfg.ANTHROPIC_API_KEY, model: cfg.WITNESS_AI_MODEL, timeoutMs: cfg.WITNESS_AI_TIMEOUT_MS, maxRetries: cfg.WITNESS_AI_MAX_RETRIES, meter: aiMeter })
       : new UnavailableProvider(),
     defaultRetailers: cfg.WITNESS_DEFAULT_RETAILERS.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    holdLinkMs: cfg.WITNESS_HOLD_LINK_TTL_MINUTES * 60_000,
   },
   webhookId: cfg.PAYPAL_WEBHOOK_ID,
   demoShopperId: cfg.WITNESS_DEMO_SHOPPER_ID,

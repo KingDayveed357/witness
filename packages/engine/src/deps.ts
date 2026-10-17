@@ -28,6 +28,11 @@ export interface EngineDeps {
   approvalTtlMs?: number;
   /** HOLD auto-void delay after authorization (default 72 h, inside PayPal's 3-day honour period). */
   holdMs?: number;
+  /**
+   * Lifetime of a one-time reviewer link (default 30 min), never past the auto-void time. The hold
+   * itself lasts holdMs; an expired link only means a new one must be issued.
+   */
+  holdLinkMs?: number;
   adapters?: Record<string, CheckoutAdapter>;
 }
 

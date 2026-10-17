@@ -1,3 +1,25 @@
+# Second Key
+
+## Hardening milestone (2026-10-17): status
+
+| Deliverable | Status | Document |
+|---|---|---|
+| 1. Transfer-intent architecture + implementation | **Done**: transfers are their own intent/request type; shared policy and manipulation check can't be bypassed | [ADR-0016](../decisions/0016-transfer-intents.md) |
+| 2. PayPal flow comparison | **Partial**: platform-held + payout proven (payout SUCCESS to the new personal account); direct payee untested past order creation; multiparty needs partner approval | [06-paypal-flows.md](06-paypal-flows.md) |
+| 3. Trusted-contact security | **Done**: one enforced 30-min link lifetime, separate from the 72 h hold; idempotent decisions | [ADR-0017](../decisions/0017-trusted-contact-links.md), [07](07-trusted-contact-security.md) |
+| 4. Audio quality + fallback | **Partial**: Chrome on-device transcription verified (noisy); real mic unverified; prepared transcript kept | [08-audio-quality.md](08-audio-quality.md) |
+| 5. Reproducible E2E | **Done**: 28/28 live, direct PayPal GETs | [09-e2e-procedure.md](09-e2e-procedure.md) |
+| 6–7. Blockers + next milestone | Ranked list; judge-facing experience next | [10-blockers-and-next.md](10-blockers-and-next.md) |
+
+Execution order and rationale: [05-hardening-plan.md](05-hardening-plan.md).
+
+**Superseded below:**
+- The sprint's transfer-as-catalog-product stopgap (finding E2): replaced by ADR-0016.
+- The 72 h link TTL (finding E4): replaced by ADR-0017.
+- "S3 browser transcription unverified": now verified for Chrome on-device with track input; a real microphone is still unverified.
+
+---
+
 # Second Key feasibility sprint: go/no-go
 
 Sprint dates: 2026-10-16. Environment: local Witness API and worker, embedded Postgres, **PayPal sandbox**, model `claude-haiku-5-5` (the only model used). All data is synthetic. Every PayPal state below was read back from PayPal with a separate GET. Nothing here is production payment protection.

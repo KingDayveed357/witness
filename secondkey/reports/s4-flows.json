@@ -1,0 +1,87 @@
+{
+  "ran_at": "2026-10-17T05:06:56.793Z",
+  "environment": "PayPal SANDBOX",
+  "recipient": "personal sandbox account (SK_RECIPIENT_EMAIL)",
+  "steps": [
+    {
+      "step": "F1.partner_referral_with_delay_disbursement",
+      "http": 403,
+      "debug_id": "ca4bcc64eabe3",
+      "issue": "NOT_AUTHORIZED",
+      "message": "Authorization failed due to insufficient permissions.",
+      "onboarding_link_returned": false
+    },
+    {
+      "step": "F2.authorize_delayed_disbursement_own_merchant",
+      "http": 422,
+      "debug_id": "ca4bcc650a8a5",
+      "issue": "UNSUPPORTED_PAYMENT_INSTRUCTION",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "order_status": null,
+      "auth_status": null
+    },
+    {
+      "step": "F3.authorize_to_recipient",
+      "http": 422,
+      "debug_id": "ca4bcc6559bc0",
+      "issue": "BILLING_AGREEMENT_NOT_FOUND",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "order_status": null,
+      "auth_status": null,
+      "payee_merchant_id_set": false
+    },
+    {
+      "step": "F3.authorize_to_recipient_2",
+      "http": 422,
+      "debug_id": "ca4bcc65c1c84",
+      "issue": "BILLING_AGREEMENT_NOT_FOUND",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "auth_status": null
+    },
+    {
+      "step": "F4.authorize_to_recipient",
+      "http": 422,
+      "debug_id": "ca4bcc66278ea",
+      "issue": "UNSUPPORTED_PAYMENT_INSTRUCTION",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "order_status": null,
+      "auth_status": null,
+      "payee_merchant_id_set": false
+    },
+    {
+      "step": "F4.authorize_to_recipient_2",
+      "http": 422,
+      "debug_id": "ca4bcc667586a",
+      "issue": "UNSUPPORTED_PAYMENT_INSTRUCTION",
+      "message": "The requested action could not be performed, semantically incorrect, or failed business validation.",
+      "auth_status": null
+    },
+    {
+      "step": "F5.payout_create",
+      "http": 201,
+      "debug_id": "ca4bcc66a1ff7",
+      "issue": null,
+      "message": null,
+      "recipient": "SK_RECIPIENT_EMAIL",
+      "batch_status": "PENDING"
+    },
+    {
+      "step": "F5.payout_settled",
+      "http": 200,
+      "debug_id": "ca4bcc6d55a84",
+      "issue": null,
+      "message": null,
+      "batch_status": "PROCESSING",
+      "item_status": "SUCCESS",
+      "seconds_waited_max": 60
+    },
+    {
+      "step": "F6.act_on_behalf_of_unconsented_account",
+      "http": 401,
+      "debug_id": "ca4bcc6d7c905",
+      "issue": "invalid_subject",
+      "message": "Subject Authentication failed",
+      "asserted_account": "unknown"
+    }
+  ]
+}

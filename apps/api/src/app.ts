@@ -229,7 +229,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
       if (who.scopes.includes("admin")) return { admin: true };
       return null;
     }
-    return typeof token === "string" && token.length >= 20 ? { token } : null;
+    return typeof token === "string" && token.length >= 20 && token.length <= 128 ? { token } : null;
   };
   const sendHold = (reply: FastifyReply, r: HoldResult<unknown>) => (r.kind === "error" ? problem(reply, r.status, r.title, r.detail) : r.value);
 

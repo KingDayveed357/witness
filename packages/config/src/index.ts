@@ -38,6 +38,8 @@ export const ApiConfig = Base.extend({
   WITNESS_AI_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(30_000),
   WITNESS_AI_MAX_RETRIES: z.coerce.number().int().min(0).max(5).default(2),
   WITNESS_DEFAULT_RETAILERS: z.string().default("rei.com,backcountry.com"),
+  /** One-time reviewer link lifetime (ADR-0017). The hold itself still lasts until auto-void. */
+  WITNESS_HOLD_LINK_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
 });
 export type ApiConfig = z.infer<typeof ApiConfig>;
 

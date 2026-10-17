@@ -15,6 +15,8 @@ export const Domain = z
 export const PolicyV1 = z
   .strictObject({
     version: z.literal(1),
+    /** Optional and never defaulted, so shopping policies written before ADR-0016 keep their digest. */
+    kind: z.literal("shopping").optional(),
     /** Allowed canonical catalog product IDs. Omit to allow any product in `category`. */
     products: z.array(z.string().min(1).max(64)).min(1).max(20).optional(),
     category: z.string().min(1).max(120).optional(),
@@ -44,3 +46,35 @@ export const PolicyV1 = z
   });
 
 export type PolicyV1 = z.infer<typeof PolicyV1>;
+
+/**
+ * A one-off transfer the payer confirmed (ADR-0016): exactly this amount to exactly this payee.
+ * Nothing in it comes from a catalog or a model.
+ */
+export const TransferPolicyV1 = z.strictObject({
+  version: z.literal(1),
+  kind: z.literal("transfer"),
+  payee: z.strictObject({
+    id: z.string().regex(/^[A-Za-z0-9_.:-]{1,64}$/, "1-64 characters of [A-Za-z0-9_.:-]"),
+    name: z.string().min(1).max(80),
+    /** True when the payer has never paid this payee before. */
+    first_payment: z.boolean(),
+  }),
+  amount_cents: z.number().int().positive().max(10_000_000),
+  currency: z.enum(CURRENCIES),
+  purpose: z.string().min(1).max(200).optional(),
+  expires_at: z.iso.datetime({ offset: true }),
+  max_payments: z.literal(1).default(1),
+});
+export type TransferPolicyV1 = z.infer<typeof TransferPolicyV1>;
+
+export type IntentPolicy = PolicyV1 | TransferPolicyV1;
+export type IntentKind = "shopping" | "transfer";
+
+export const intentKindOf = (p: IntentPolicy): IntentKind => (p.kind === "transfer" ? "transfer" : "shopping");
+
+/** Parse a stored or submitted policy by its kind; no `kind` means a shopping policy. */
+export function parseIntentPolicy(input: unknown) {
+  const kind = input && typeof input === "object" ? (input as { kind?: unknown }).kind : undefined;
+  return kind === "transfer" ? TransferPolicyV1.safeParse(input) : PolicyV1.safeParse(input);
+}

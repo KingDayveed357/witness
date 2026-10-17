@@ -1,0 +1,42 @@
+{
+  "ran_at": "2026-10-17T05:40:29.563Z",
+  "note": "isolated temporary Chrome profile; synthetic disclosed audio as fake microphone",
+  "results": {
+    "fake_mic_file": {
+      "version": "Chrome/155.0.8059.80",
+      "supported": true,
+      "events": [
+        "start@4",
+        "audiostart@1358",
+        "soundstart@1957",
+        "speechstart@1957",
+        "speechend@35861",
+        "soundend@35861",
+        "audioend@35862",
+        "end@36090"
+      ],
+      "finals": [],
+      "first_word_ms": null,
+      "transcript": "",
+      "consoleErrors": []
+    },
+    "fake_mic_file_no_automation_flag": {
+      "version": "Chrome/155.0.8059.80",
+      "supported": true,
+      "events": [
+        "start@4",
+        "audiostart@861",
+        "soundstart@1461",
+        "speechstart@1461",
+        "speechend@33665",
+        "soundend@33665",
+        "audioend@33665",
+        "end@33841"
+      ],
+      "finals": [],
+      "first_word_ms": null,
+      "transcript": "",
+      "consoleErrors": []
+    }
+  }
+}
