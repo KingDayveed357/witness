@@ -10,14 +10,14 @@
 // opposite decision gets 409. The spent link can still show the outcome until it expires.
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, eq } from "drizzle-orm";
-import { authorizationDiffs, expectationFor, fromCents, threeWayMatch, type ResolvedCart } from "@witness/core";
+import { and, asc, eq } from "drizzle-orm";
+import { authorizationDiffs, expectationFor, fromCents, threeWayMatch, type EvidenceItem, type ResolvedCart } from "@witness/core";
 import { QUEUES, enqueue, recordChecks, recordDecision, schema, transition, withTx, dbOf, type PurchaseRow } from "@witness/db";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { nowOf, type EngineDeps } from "./deps.ts";
 import { issueApproval } from "./purchase.ts";
 
-const { purchases, holds, intents, tenants } = schema;
+const { purchases, holds, intents, tenants, shoppers, checks: checksT } = schema;
 
 export type HoldResult<T> = { kind: "ok"; value: T } | { kind: "error"; status: 400 | 403 | 404 | 409 | 410 | 502; title: string; detail?: string };
 const bad = (status: 400 | 403 | 404 | 409 | 410 | 502, title: string, detail?: string): HoldResult<never> => ({ kind: "error", status, title, ...(detail ? { detail } : {}) });
@@ -39,6 +39,13 @@ export interface HoldView {
   link_expires_at: string | null;
   /** True when this response replays a decision already recorded for the same choice. */
   replayed?: boolean;
+  /** What the reviewer needs to decide (Second Key): who, to whom, why, and the evidence. */
+  kind: "shopping" | "transfer";
+  payer_name: string | null;
+  payee: { name: string; first_payment: boolean } | null;
+  purpose: string | null;
+  conversation: { context: string; lines: { speaker: string; text: string }[] } | null;
+  concerns: { check_id: string; kind: string; detail: string; evidence: EvidenceItem[] }[];
 }
 
 async function load(d: EngineDeps, purchaseId: string) {
@@ -47,11 +54,21 @@ async function load(d: EngineDeps, purchaseId: string) {
   if (!p) return null;
   const h = (await db.select().from(holds).where(eq(holds.purchaseId, purchaseId)).limit(1))[0] ?? null;
   const i = (await db.select().from(intents).where(eq(intents.id, p.intentId)).limit(1))[0]!;
-  return { p, h, i };
+  const shopper = (await db.select({ name: shoppers.displayName }).from(shoppers).where(eq(shoppers.id, i.shopperId)).limit(1))[0];
+  const concerns = await db
+    .select()
+    .from(checksT)
+    .where(and(eq(checksT.purchaseId, purchaseId), eq(checksT.phase, "SCREEN"), eq(checksT.result, "unknown")))
+    .orderBy(asc(checksT.id));
+  return { p, h, i, payerName: shopper?.name ?? null, concerns };
 }
+type Ctx = NonNullable<Awaited<ReturnType<typeof load>>>;
 
-function view(p: PurchaseRow, h: typeof holds.$inferSelect | null, viaLink = false): HoldView {
+function view(ctx: Ctx, viaLink = false): HoldView {
+  const { p, h, i } = ctx;
   const cart = p.cart as ResolvedCart | null;
+  const req = (p.request ?? {}) as { kind?: string; conversation?: HoldView["conversation"] };
+  const policy = (i.policy ?? {}) as { kind?: string; payee?: { name: string; first_payment: boolean }; purpose?: string };
   return {
     purchase_id: p.id,
     state: p.state,
@@ -62,6 +79,12 @@ function view(p: PurchaseRow, h: typeof holds.$inferSelect | null, viaLink = fal
     auto_void_at: h?.autoVoidAt.toISOString() ?? null,
     resolution: h?.resolution ?? null,
     link_expires_at: viaLink ? (h?.tokenExpiresAt?.toISOString() ?? null) : null,
+    kind: req.kind === "transfer" ? "transfer" : "shopping",
+    payer_name: ctx.payerName,
+    payee: policy.kind === "transfer" && policy.payee ? { name: policy.payee.name, first_payment: policy.payee.first_payment } : null,
+    purpose: policy.kind === "transfer" ? (policy.purpose ?? null) : null,
+    conversation: req.conversation ?? null,
+    concerns: ctx.concerns.map((c) => ({ check_id: c.checkId, kind: c.kind, detail: c.detail, evidence: (c.evidence as EvidenceItem[] | null) ?? [] })),
   };
 }
 
@@ -69,7 +92,7 @@ const RESOLUTION_OF = { approve: "APPROVED", deny: "DENIED" } as const;
 const DEFAULT_LINK_MS = 30 * 60_000;
 
 /** Check the actor may act on this hold. Tenant scoping is done by the caller for shopper/admin. */
-function authorize(actor: HoldActor, ctx: NonNullable<Awaited<ReturnType<typeof load>>>, now: Date): HoldResult<string> {
+function authorize(actor: HoldActor, ctx: Ctx, now: Date): HoldResult<string> {
   if ("admin" in actor) return { kind: "ok", value: "admin" };
   if ("shopperId" in actor) return ctx.i.shopperId === actor.shopperId ? { kind: "ok", value: `shopper:${actor.shopperId}` } : bad(404, "Hold not found");
   const h = ctx.h;
@@ -86,7 +109,7 @@ export async function getHold(d: EngineDeps, purchaseId: string, actor: HoldActo
   if (!ctx || (tenantId && ctx.p.tenantId !== tenantId) || !ctx.h) return bad(404, "Hold not found");
   const ok = authorize(actor, ctx, nowOf(d));
   if (ok.kind === "error") return ok;
-  return { kind: "ok", value: view(ctx.p, ctx.h, "token" in actor) };
+  return { kind: "ok", value: view(ctx, "token" in actor) };
 }
 
 /** Create (or replace) the one-time link token. Returned once; only its hash is stored. */
@@ -111,7 +134,7 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
   const viaLink = "token" in actor;
   // Already decided: a retry of the same choice gets the recorded result; anything else is a conflict.
   if (ctx.h.resolvedAt || ctx.p.state !== "HELD") {
-    if (ctx.h.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(ctx.p, ctx.h, viaLink), replayed: true } };
+    if (ctx.h.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(ctx, viaLink), replayed: true } };
     return bad(409, "Already decided", `The hold was resolved as ${ctx.h.resolution ?? ctx.p.state}; the purchase is ${ctx.p.state}`);
   }
   const p0 = ctx.p;
@@ -161,8 +184,40 @@ export async function resolveHold(d: EngineDeps, purchaseId: string, decision: "
   const after = await load(d, purchaseId);
   if (!applied) {
     // Lost a race. Same choice as the winner (a double tap) → the recorded result; otherwise 409.
-    if (after!.h?.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(after!.p, after!.h, viaLink), replayed: true } };
+    if (after!.h?.resolution === RESOLUTION_OF[decision]) return { kind: "ok", value: { ...view(after!, viaLink), replayed: true } };
     return bad(409, "Already decided", `Another decision was recorded first; the purchase is ${after!.p.state}`);
   }
-  return { kind: "ok", value: view(after!.p, after!.h, viaLink) };
+  return { kind: "ok", value: view(after!, viaLink) };
+}
+
+export interface HoldVerification {
+  fetched_at: string;
+  debug_id: string | null;
+  order_status: string | null;
+  authorizations: { id: string; status: string; value: string }[];
+  captures: { id: string; status: string; value: string }[];
+}
+
+/**
+ * PayPal's own record of this held payment, read live (no money moves). Lets a reviewer check the
+ * outcome themselves instead of trusting Witness's state. Same access rules as viewing the hold.
+ */
+export async function verifyHold(d: EngineDeps, purchaseId: string, actor: HoldActor, tenantId?: string): Promise<HoldResult<HoldVerification>> {
+  const ctx = await load(d, purchaseId);
+  if (!ctx || (tenantId && ctx.p.tenantId !== tenantId) || !ctx.h) return bad(404, "Hold not found");
+  const ok = authorize(actor, ctx, nowOf(d));
+  if (ok.kind === "error") return ok;
+  if (!ctx.p.paypalOrderId) return bad(409, "No PayPal order exists for this payment");
+  try {
+    const r = await d.paypal.getOrder(ctx.p.paypalOrderId);
+    const pu = r.data?.purchase_units?.[0] ?? {};
+    const row = (x: { id?: unknown; status?: unknown; amount?: { value?: unknown } }) => ({ id: String(x.id), status: String(x.status), value: String(x.amount?.value ?? "") });
+    return {
+      kind: "ok",
+      value: { fetched_at: nowOf(d).toISOString(), debug_id: r.debugId ?? null, order_status: r.data?.status ?? null, authorizations: (pu.payments?.authorizations ?? []).map(row), captures: (pu.payments?.captures ?? []).map(row) },
+    };
+  } catch (e) {
+    if (e instanceof PayPalNetworkError || e instanceof PayPalHttpError) return bad(502, "Couldn't reach PayPal to verify; try again");
+    throw e;
+  }
 }

@@ -37,6 +37,7 @@ export const RULES: Rule[] = [
   { method: "POST", pattern: new RegExp(`^/v1/purchases/${ID}/hold-link$`), role: "shopper" },
 
   { method: "GET", pattern: new RegExp(`^/v1/holds/${ID}$`), role: "token" },
+  { method: "GET", pattern: new RegExp(`^/v1/holds/${ID}/verification$`), role: "token" },
   { method: "POST", pattern: new RegExp(`^/v1/holds/${ID}/(approve|deny)$`), role: "token" },
 
   { method: "GET", pattern: /^\/v1\/console\/(purchases|holds|stats|webhooks)$/, role: "console" },

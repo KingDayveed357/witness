@@ -15,11 +15,13 @@ import {
   revokeIntent,
   runScenario,
   SCENARIOS,
+  transferPolicy,
   compileAndCreateIntent,
   draftDisputeEvidence,
   getHold,
   issueHoldLink,
   resolveHold,
+  verifyHold,
   submitPurchase,
   type HoldActor,
   type HoldResult,
@@ -51,6 +53,13 @@ const problem = (reply: FastifyReply, status: number, title: string, detail?: st
     .send({ type: "about:blank", title, status, ...(detail ? { detail } : {}), trace_id: reply.request.id });
 
 const shopperIdOf = (p: Principal) => (p.principal.startsWith("shopper:") ? p.principal.slice("shopper:".length) : null);
+
+/** The audit epoch that holds a purchase's events (a demo reset starts a new epoch). */
+async function epochOf(client: { query: (q: string, v: unknown[]) => Promise<{ rows: { epoch: number | null }[] }> }, purchaseId: string): Promise<{ epoch?: number }> {
+  const r = await client.query("SELECT max(epoch) AS epoch FROM audit_log WHERE purchase_id = $1", [purchaseId]);
+  const e = r.rows[0]?.epoch;
+  return e == null ? {} : { epoch: Number(e) };
+}
 
 export function buildApp(o: AppOptions): FastifyInstance {
   const d = o.deps;
@@ -172,12 +181,13 @@ export function buildApp(o: AppOptions): FastifyInstance {
     ]);
     const client = await d.pool.connect();
     try {
-      const chain = await verifyChain(client, { purchaseId: p.id });
+      const chain = await verifyChain(client, { purchaseId: p.id, ...(await epochOf(client, p.id)) });
       return {
         purchase: purchaseView(p),
         intent: intent ? intentView(intent) : null,
         facts: p.facts,
-        checks: checks.map((c) => ({ phase: c.phase, check_id: c.checkId, kind: c.kind, result: c.result, detail: c.detail, line: c.line, at: c.createdAt })),
+        request: { kind: (p.request as { kind?: string } | null)?.kind === "transfer" ? "transfer" : "shopping", conversation: (p.request as { conversation?: unknown } | null)?.conversation ?? null },
+        checks: checks.map((c) => ({ phase: c.phase, check_id: c.checkId, kind: c.kind, result: c.result, detail: c.detail, line: c.line, evidence: c.evidence ?? null, model: c.model, prompt_version: c.promptVersion, at: c.createdAt })),
         decisions: decisions.map((x) => ({ outcome: x.outcome, reasons: x.reasons, decided_by: x.decidedBy, at: x.createdAt })),
         paypal_calls: calls.map((c) => ({ op: c.op, request_id: c.requestId, status: c.status, http_status: c.httpStatus, debug_id: c.debugId, at: c.createdAt })),
         chain,
@@ -248,6 +258,12 @@ export function buildApp(o: AppOptions): FastifyInstance {
     return sendHold(reply, await getHold(d, req.params.id, actor, req.principal?.tenantId));
   });
 
+  app.get<{ Params: { id: string }; Querystring: { t?: string } }>("/v1/holds/:id/verification", async (req, reply) => {
+    const actor = await holdActor(req, req.query.t);
+    if (!actor) return problem(reply, 401, "Unauthorized", "Sign in or use the link you were sent");
+    return sendHold(reply, await verifyHold(d, req.params.id, actor, req.principal?.tenantId));
+  });
+
   for (const decision of ["approve", "deny"] as const) {
     app.post<{ Params: { id: string }; Body: { token?: string } }>(`/v1/holds/:id/${decision}`, async (req, reply) => {
       const actor = await holdActor(req, req.body?.token);
@@ -257,7 +273,16 @@ export function buildApp(o: AppOptions): FastifyInstance {
   }
 
   // ---- demo -------------------------------------------------------------------------------
-  app.get("/v1/demo/scenarios", async () => Object.entries(SCENARIOS).map(([name, s]) => ({ name, title: s.title, expected: s.expected })));
+  // Scenario details are synthetic demo data (people, conversations), so the payer screen can show
+  // exactly what the engine will screen.
+  app.get("/v1/demo/scenarios", async () =>
+    Object.entries(SCENARIOS).map(([name, s]) => ({
+      name,
+      title: s.title,
+      expected: s.expected,
+      ...(s.transfer ? { transfer: { payee: s.transfer.payee, amount_cents: transferPolicy(new Date(), s.transfer).amount_cents, currency: "USD", purpose: s.transfer.purpose, conversation: s.transfer.conversation } } : {}),
+    })),
+  );
 
   app.post<{ Params: { name: string } }>("/v1/demo/scenarios/:name", { preHandler: auth("demo", "admin") }, async (req, reply) => {
     if (!o.demoShopperId) return problem(reply, 503, "Demo not configured", "WITNESS_DEMO_SHOPPER_ID is not set");
@@ -355,7 +380,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
   app.get<{ Params: { id: string } }>("/v1/verify/purchases/:id", async (req) => {
     const client = await d.pool.connect();
     try {
-      const proof = await verifyChain(client, { purchaseId: req.params.id });
+      const proof = await verifyChain(client, { purchaseId: req.params.id, ...(await epochOf(client, req.params.id)) });
       // Public: hashes and event types only, no payloads.
       return { epoch: proof.epoch, valid: proof.valid, head_hash: proof.head_hash, events: proof.events.map((e) => ({ seq: e.seq, event_type: e.event_type, at: e.at, prev_hash: e.prev_hash, hash: e.hash })) };
     } finally {

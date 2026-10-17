@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
-import { SESSION_COOKIE, consoleConfigured, validSession } from "../../lib/server/session";
-import { ConsoleShell } from "../_components/console-shell";
+import { SESSION_COOKIE, consoleConfigured, validSession } from "../../../lib/server/session";
+import { ConsoleShell } from "../../_components/console-shell";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ops console · Witness" };

@@ -1,5 +1,13 @@
 # Second Key
 
+## Judge-ready vertical slice (2026-10-17)
+
+Payer (`/pay`), trusted contact (`/holds/[id]`), Protection Desk (`/desk`) and agent demo (`/agent`) are built on the real engine and the PayPal sandbox. Scripted rehearsal: 8/8 from a clean session.
+
+- Design decisions: [11-experience-blueprint.md](11-experience-blueprint.md)
+- What was built, the verified lifecycle, licensing, limitations and the demo script: [12-vertical-slice.md](12-vertical-slice.md)
+- Screens: [screens/](screens/)
+
 ## Hardening milestone (2026-10-17): status
 
 | Deliverable | Status | Document |

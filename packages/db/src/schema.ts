@@ -87,6 +87,8 @@ export const checks = pgTable("checks", {
   line: text("line"),
   model: text("model"),
   promptVersion: text("prompt_version"),
+  /** Grounded evidence for AI checks (0003); null for deterministic checks. */
+  evidence: jsonb("evidence"),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

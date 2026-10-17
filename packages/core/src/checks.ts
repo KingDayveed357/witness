@@ -7,6 +7,20 @@ import { Domain, type IntentPolicy, type PolicyV1, type TransferPolicyV1 } from 
 import type { Currency } from "./money.ts";
 
 export type CheckResult = "pass" | "fail" | "unknown";
+
+/**
+ * One piece of grounded evidence behind an AI check: a quote verified (by code, not the model) to
+ * appear in the named source. `line` indexes the conversation's lines when the source is one.
+ */
+export interface EvidenceItem {
+  tactic: string;
+  quote: string;
+  source: "conversation" | "listing";
+  speaker?: string;
+  line?: number;
+  why?: string;
+}
+
 export interface Check {
   id: string;
   result: CheckResult;
@@ -21,6 +35,8 @@ export interface Check {
    * rarely match the shopper's words literally). Settled only by a definitive, grounded AI verdict.
    */
   defers_to?: string;
+  /** Grounded quotes behind an AI check (Second Key). */
+  evidence?: EvidenceItem[];
 }
 
 /** Untrusted conversation the payer was in when asked to pay (Second Key). */

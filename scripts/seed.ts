@@ -25,7 +25,7 @@ await migrate(pool, console.log);
 const tenantId = newId("ten");
 const shopperId = newId("shp");
 await pool.query("INSERT INTO tenants (id, name, paypal_merchant_id) VALUES ($1, 'Witness Demo MoR', $2)", [tenantId, merchant]);
-await pool.query("INSERT INTO shoppers (id, tenant_id, display_name, vault_id) VALUES ($1, $2, 'Demo Shopper', $3)", [shopperId, tenantId, vaultId]);
+await pool.query("INSERT INTO shoppers (id, tenant_id, display_name, vault_id) VALUES ($1, $2, 'Rose', $3)", [shopperId, tenantId, vaultId]);
 
 const keys = {
   tenant_id: tenantId,

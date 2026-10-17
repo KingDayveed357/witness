@@ -1,32 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import Link from "next/link";
-import "./globals.css";
+import { Geist, Geist_Mono, Newsreader } from "next/font/google";
+
+// Root shell only. Each product area brings its own layout and styles: Second Key in (sk), the
+// original Witness surfaces in (witness).
+const sans = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
+const mono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+const serif = Newsreader({ subsets: ["latin"], variable: "--font-serif", display: "swap", style: ["normal", "italic"] });
 
 export const metadata: Metadata = {
-  title: "Witness",
-  description: "Intent verification and payment control for AI shopping agents, on the PayPal sandbox.",
+  title: "Second Key",
+  description: "A second key for payments made under pressure. PayPal sandbox demo with synthetic data.",
 };
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <header className="top">
-          <div className="wrap">
-            <Link href="/" className="brand">Witness</Link>
-            <nav>
-              <Link href="/">Try it</Link>
-              <Link href="/shop">Shopper</Link>
-              <Link href="/console">Ops console</Link>
-            </nav>
-            <span className="sandbox">PayPal sandbox · no real money</span>
-          </div>
-        </header>
-        <main>
-          <div className="wrap">{children}</div>
-        </main>
-      </body>
+    <html lang="en" className={`${sans.variable} ${mono.variable} ${serif.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

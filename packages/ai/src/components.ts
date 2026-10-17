@@ -4,7 +4,7 @@
 // SKUs, merchants or quantities.
 
 import { z } from "zod";
-import { CURRENCIES, PolicyV1, numberToCents, type Check, type ProductFacts, type ResolvedCart } from "@witness/core";
+import { CURRENCIES, PolicyV1, numberToCents, type Check, type EvidenceItem, type ProductFacts, type ResolvedCart } from "@witness/core";
 import { promptRef, type AiResult, type LlmClient } from "./llm.ts";
 import { PROMPTS } from "./prompts.ts";
 import { MANIPULATION_V1, assess, type Conversation } from "./manipulation.ts";
@@ -38,7 +38,14 @@ export async function checkInjection(ai: LlmClient, facts: ProductFacts[]): Prom
   }
   if (r.value.suspected && r.value.confidence >= THRESHOLDS.injection) {
     const span = r.value.spans[0];
-    return { id: "ai.injection", result: "unknown", detail: `possible prompt injection in listing text${span ? `: "${span.text.slice(0, 160)}" (${span.reason})` : ""}`, ...aiMeta(r) };
+    // Only spans that really occur in a listing Witness fetched count as evidence.
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const texts = facts.map((f) => norm(listingText(f)));
+    const evidence: EvidenceItem[] = r.value.spans
+      .filter((sp) => norm(sp.text).length >= 12 && texts.some((t) => t.includes(norm(sp.text))))
+      .slice(0, 4)
+      .map((sp) => ({ tactic: "instruction_to_agent", quote: sp.text.slice(0, 300), source: "listing", why: sp.reason.slice(0, 300) }));
+    return { id: "ai.injection", result: "unknown", detail: `possible prompt injection in listing text${span ? `: "${span.text.slice(0, 160)}" (${span.reason})` : ""}`, ...aiMeta(r), evidence };
   }
   return { id: "ai.injection", result: "pass", detail: `no manipulation found in listing text (confidence ${r.value.confidence.toFixed(2)})`, ...aiMeta(r) };
 }
@@ -267,11 +274,12 @@ export async function checkManipulation(ai: LlmClient, conversation: Conversatio
   const a = await assess(ai, conversation);
   const meta = { kind: "ai" as const, model: a.model ?? "none", prompt_version: promptRef(MANIPULATION_V1) };
   if (!a.ok) return { id: "ai.manipulation", result: "unknown", detail: `manipulation check unavailable (${a.failure}); held for review`, ...meta };
-  const evidence = a.grounded.slice(0, 4).map((g) => `${g.tactic.replace(/_/g, " ")}: "${g.quote.slice(0, 120)}" (${g.speaker.slice(0, 40)})`);
-  const summary = evidence.length ? `; ${evidence.join("; ")}` : "";
-  if (a.intervention === "PROCEED") return { id: "ai.manipulation", result: "pass", detail: `no manipulation found (risk ${a.risk})${summary}`, ...meta };
+  const brief = a.grounded.slice(0, 4).map((g) => `${g.tactic.replace(/_/g, " ")}: "${g.quote.slice(0, 120)}" (${g.speaker.slice(0, 40)})`);
+  const summary = brief.length ? `; ${brief.join("; ")}` : "";
+  const evidence: EvidenceItem[] = a.grounded.slice(0, 8).map((g) => ({ tactic: g.tactic, quote: g.quote.slice(0, 300), source: "conversation", speaker: g.speaker.slice(0, 80), line: g.line_index, why: g.why.slice(0, 300) }));
+  if (a.intervention === "PROCEED") return { id: "ai.manipulation", result: "pass", detail: `no manipulation found (risk ${a.risk})${summary}`, ...meta, evidence };
   const what = a.intervention === "HOLD_FOR_TRUSTED_CONTACT" ? "hold for trusted contact" : "verify before paying";
-  return { id: "ai.manipulation", result: "unknown", detail: `${what}: manipulation risk ${a.risk}${summary}`, ...meta };
+  return { id: "ai.manipulation", result: "unknown", detail: `${what}: manipulation risk ${a.risk}${summary}`, ...meta, evidence };
 }
 
 /**

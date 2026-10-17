@@ -23,23 +23,30 @@ export interface ConsoleOptions {
 const cents = (n: unknown) => (n == null ? null : Number(n));
 
 /** Purchase ledger rows, flat for grids. The primary reason is the first non-passing check. */
-async function ledger(d: EngineDeps, tenantId: string, limit: number) {
+async function ledger(d: EngineDeps, tenantId: string, limit: number, since?: Date) {
   const { rows } = await d.pool.query(
     `SELECT p.id, p.state, p.outcome, p.retailer, p.amount_cents, p.currency, p.reasons, p.intent_id,
             p.paypal_order_id, p.paypal_capture_id, p.created_at, p.updated_at,
-            p.cart->'lines'->0->>'name' AS product,
-            (SELECT c.check_id FROM checks c WHERE c.purchase_id = p.id AND c.result <> 'pass' ORDER BY c.id LIMIT 1) AS primary_check
+            p.cart->'lines'->0->>'name' AS product, coalesce(p.request->>'kind', 'shopping') AS kind,
+            (SELECT c.check_id FROM checks c WHERE c.purchase_id = p.id AND c.result <> 'pass' ORDER BY c.id LIMIT 1) AS primary_check,
+            (SELECT x.decided_by FROM decisions x WHERE x.purchase_id = p.id ORDER BY x.id DESC LIMIT 1) AS decided_by,
+            h.resolution, h.auto_void_at
        FROM purchases p
-      WHERE p.tenant_id = $1
+       LEFT JOIN holds h ON h.purchase_id = p.id
+      WHERE p.tenant_id = $1 AND ($3::timestamptz IS NULL OR p.created_at >= $3)
       ORDER BY p.created_at DESC
       LIMIT $2`,
-    [tenantId, limit],
+    [tenantId, limit, since ?? null],
   );
   return rows.map((r) => ({
     id: r.id as string,
     state: r.state as string,
     outcome: (r.outcome as string | null) ?? null,
     product: (r.product as string | null) ?? null,
+    kind: r.kind === "transfer" ? ("transfer" as const) : ("shopping" as const),
+    decided_by: (r.decided_by as string | null) ?? null,
+    hold_resolution: (r.resolution as string | null) ?? null,
+    hold_auto_void_at: r.auto_void_at ? (r.auto_void_at as Date).toISOString() : null,
     retailer: (r.retailer as string | null) ?? null,
     amount_cents: cents(r.amount_cents),
     currency: (r.currency as string | null) ?? null,
@@ -104,9 +111,12 @@ const JudgeListing = z.strictObject({
 export function registerConsole(app: FastifyInstance, d: EngineDeps, auth: Auth, problem: Problem, o: ConsoleOptions = {}) {
   const tenantOf = (req: FastifyRequest) => (req.principal as Principal).tenantId;
 
-  app.get<{ Querystring: { limit?: string } }>("/v1/console/purchases", { preHandler: auth("ops", "admin") }, async (req) => {
+  app.get<{ Querystring: { limit?: string; scope?: string } }>("/v1/console/purchases", { preHandler: auth("ops", "admin") }, async (req) => {
     const limit = Math.min(500, Math.max(1, Number(req.query.limit ?? 200) || 200));
-    return { purchases: await ledger(d, tenantOf(req), limit) };
+    // scope=session: only purchases since the last demo reset (the current audit epoch). Nothing is deleted.
+    const e = (await d.pool.query("SELECT epoch, started_at FROM audit_epochs ORDER BY epoch DESC LIMIT 1")).rows[0];
+    const since = req.query.scope === "session" && e && e.epoch > 1 ? (e.started_at as Date) : undefined;
+    return { purchases: await ledger(d, tenantOf(req), limit, since), session_started_at: since?.toISOString() ?? null };
   });
 
   app.get("/v1/console/holds", { preHandler: auth("ops", "admin") }, async (req) => {

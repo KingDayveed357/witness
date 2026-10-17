@@ -187,3 +187,53 @@ describe("shopping keeps its checks and gains the shared one", () => {
     expect(transferPolicy(new Date()).payee.id).toBe(DEMO_PAYEE.id);
   });
 });
+
+describe("what the Second Key screens read (blueprint §7)", () => {
+  test("reviewer view carries payer, payee, purpose, the conversation and structured, grounded evidence", async () => {
+    const p = (await app.inject({ method: "POST", url: "/v1/demo/scenarios/scam_transfer", headers: bearer("demo") })).json().purchase;
+    const link = (await app.inject({ method: "POST", url: `/v1/purchases/${p.id}/hold-link`, headers: bearer("shopper") })).json();
+    const v = (await app.inject({ method: "GET", url: `/v1/holds/${p.id}?t=${link.token}` })).json();
+    expect(v).toMatchObject({ kind: "transfer", payee: { name: "J. Morgan", first_payment: true }, purpose: "Bail for Danny" });
+    expect(typeof v.payer_name).toBe("string");
+    expect(v.conversation.lines.length).toBeGreaterThan(1);
+    const m = v.concerns.find((c: { check_id: string }) => c.check_id === "ai.manipulation");
+    expect(m.evidence.length).toBeGreaterThan(0);
+    for (const e of m.evidence) {
+      expect(e.source).toBe("conversation");
+      expect(v.conversation.lines[e.line].text).toContain(e.quote);
+    }
+  });
+
+  test("the reviewer can read PayPal's own state with the same token, and only with it", async () => {
+    const p = (await app.inject({ method: "POST", url: "/v1/demo/scenarios/scam_transfer", headers: bearer("demo") })).json().purchase;
+    const link = (await app.inject({ method: "POST", url: `/v1/purchases/${p.id}/hold-link`, headers: bearer("shopper") })).json();
+    const ver = await app.inject({ method: "GET", url: `/v1/holds/${p.id}/verification?t=${link.token}` });
+    expect(ver.json()).toMatchObject({ authorizations: [{ status: "CREATED", value: "1800.00" }], captures: [] });
+    expect((await app.inject({ method: "GET", url: `/v1/holds/${p.id}/verification?t=${"x".repeat(32)}` })).statusCode).toBe(403);
+    expect((await app.inject({ method: "GET", url: `/v1/holds/${p.id}/verification` })).statusCode).toBe(401);
+  });
+
+  test("injection evidence is a quote that really occurs in the listing", async () => {
+    const p = (await app.inject({ method: "POST", url: "/v1/demo/scenarios/injection", headers: bearer("demo") })).json().purchase;
+    const ev = await evidence(p.id);
+    const inj = ev.checks.find((c: { check_id: string }) => c.check_id === "ai.injection");
+    expect(inj.evidence[0]).toMatchObject({ source: "listing", tactic: "instruction_to_agent" });
+    expect(JSON.stringify(ev.facts)).toContain(inj.evidence[0].quote.slice(0, 30));
+    expect(ev.request.kind).toBe("shopping");
+  });
+
+  test("evidence endpoint returns the original conversation; ledger knows the kind and who decided", async () => {
+    const p = (await app.inject({ method: "POST", url: "/v1/demo/scenarios/scam_transfer", headers: bearer("demo") })).json().purchase;
+    expect((await evidence(p.id)).request).toMatchObject({ kind: "transfer", conversation: { lines: expect.any(Array) } });
+    const ledger = (await app.inject({ method: "GET", url: "/v1/console/purchases", headers: bearer("ops") })).json().purchases;
+    const row = ledger.find((r: { id: string }) => r.id === p.id);
+    expect(row).toMatchObject({ kind: "transfer", decided_by: "engine", hold_resolution: null });
+  });
+
+  test("scenario list exposes the synthetic transfer details the payer screen shows", async () => {
+    const list = (await app.inject({ method: "GET", url: "/v1/demo/scenarios" })).json();
+    const scam = list.find((s: { name: string }) => s.name === "scam_transfer");
+    expect(scam.transfer).toMatchObject({ payee: { name: "J. Morgan" }, amount_cents: 180000, conversation: { lines: expect.any(Array) } });
+    expect(list.find((s: { name: string }) => s.name === "normal").transfer).toBeUndefined();
+  });
+});

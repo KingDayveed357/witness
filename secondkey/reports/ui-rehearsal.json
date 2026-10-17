@@ -1,0 +1,39 @@
+{
+  "ran_at": "2026-10-17T07:24:00.545Z",
+  "web": "http://127.0.0.1:3100",
+  "environment": "local web + API + worker, PayPal SANDBOX, synthetic data",
+  "steps": [
+    {
+      "step": "home renders the promise and the honesty legend",
+      "ok": true
+    },
+    {
+      "step": "payer: paused, PayPal authorization reserved (live read)",
+      "ok": true
+    },
+    {
+      "step": "reviewer: token removed from the address bar",
+      "ok": true
+    },
+    {
+      "step": "reviewer: decision recorded, then PayPal shows the authorization voided",
+      "ok": true
+    },
+    {
+      "step": "payer: shows the verified cancellation without a refresh",
+      "ok": true
+    },
+    {
+      "step": "payer: contractor invoice completed without review, capture verified",
+      "ok": true
+    },
+    {
+      "step": "agent: purchase paused, the instruction quoted from the page",
+      "ok": true
+    },
+    {
+      "step": "desk: evidence, trusted-contact decision, PayPal voided and verified timeline agree",
+      "ok": true
+    }
+  ]
+}
