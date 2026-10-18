@@ -38,7 +38,8 @@ async function ledger(d: EngineDeps, tenantId: string, limit: number, since?: Da
               ORDER BY array_position(ARRAY['secrecy','urgency','threat','safe_account','remote_access','unusual_payment_channel','instruction_to_agent','authority_pressure','impersonation','emotional_manipulation','too_good_to_be_true'], e->>'tactic') NULLS LAST
               LIMIT 1) AS top_tactic,
             (SELECT coalesce(sum(jsonb_array_length(c.evidence)), 0)::int FROM checks c WHERE c.purchase_id = p.id AND c.result <> 'pass' AND c.evidence IS NOT NULL) AS evidence_count,
-            (p.request ? 'conversation') AS has_conversation,
+            ((p.request ? 'conversation') OR EXISTS (SELECT 1 FROM shared_context sc WHERE sc.purchase_id = p.id)) AS has_conversation,
+            EXISTS (SELECT 1 FROM checks c WHERE c.purchase_id = p.id AND c.check_id = 'transfer.review_rule' AND c.result = 'unknown') AS rule_triggered,
             (SELECT a.event_type FROM audit_log a WHERE a.purchase_id = p.id ORDER BY a.epoch DESC, a.seq DESC LIMIT 1) AS last_event,
             (SELECT a.at FROM audit_log a WHERE a.purchase_id = p.id ORDER BY a.epoch DESC, a.seq DESC LIMIT 1) AS last_event_at,
             p.paypal_authorization_id, h.resolution, h.auto_void_at, po.status AS payout_status
@@ -62,6 +63,7 @@ async function ledger(d: EngineDeps, tenantId: string, limit: number, since?: Da
     top_tactic: (r.top_tactic as string | null) ?? null,
     evidence_count: Number(r.evidence_count ?? 0),
     has_conversation: Boolean(r.has_conversation),
+    rule_triggered: Boolean(r.rule_triggered),
     last_event: (r.last_event as string | null) ?? null,
     last_event_at: r.last_event_at ? (r.last_event_at as Date).toISOString() : null,
     paypal_authorization_id: (r.paypal_authorization_id as string | null) ?? null,

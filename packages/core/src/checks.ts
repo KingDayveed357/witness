@@ -70,8 +70,8 @@ export type PurchaseRequest = z.infer<typeof PurchaseRequest>;
 
 /**
  * A transfer against a transfer intent (ADR-0016). Payee and amount restate what the payer
- * confirmed and must match it exactly. The conversation is required: a transfer is never
- * submitted without the context that gets screened.
+ * confirmed and must match it exactly. The conversation is OPTIONAL (ADR-0019): sharing it is the
+ * payer's choice; the payer's own review rule applies either way, and when it is shared it is screened.
  */
 export const TransferRequest = z.strictObject({
   kind: z.literal("transfer"),
@@ -79,7 +79,7 @@ export const TransferRequest = z.strictObject({
   payee_id: z.string().min(1).max(64),
   amount_cents: z.number().int().positive().max(10_000_000),
   currency: z.string().length(3),
-  conversation: ConversationInput,
+  conversation: ConversationInput.optional(),
 });
 export type TransferRequest = z.infer<typeof TransferRequest>;
 export type PaymentRequest = PurchaseRequest | TransferRequest;
@@ -197,6 +197,25 @@ export function screenPayment(policy: IntentPolicy, req: PaymentRequest, facts: 
   return { cart: null, checks: [{ id: "intent.kind", result: "fail", detail: `a ${got} request can't be paid against a ${want} intent` }] };
 }
 
+const usdLike = (cents: number, currency: string) => new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+
+/**
+ * The payer's own rule (ADR-0019), deterministic: a first payment to someone new at or above the
+ * threshold is held for a second look. "unknown" → HOLD; it never fails a payment and never needs AI.
+ */
+export function reviewRule(policy: TransferPolicyV1): Check | null {
+  const t = policy.review_threshold_cents;
+  if (t === undefined) return null;
+  const triggered = policy.payee.first_payment && policy.amount_cents >= t;
+  return {
+    id: "transfer.review_rule",
+    result: triggered ? "unknown" : "pass",
+    detail: triggered
+      ? `the payer's rule: a second look for first payments of ${usdLike(t, policy.currency)} or more to someone new (this is ${usdLike(policy.amount_cents, policy.currency)} to ${policy.payee.name}, a first payment)`
+      : `the payer's rule (first payments of ${usdLike(t, policy.currency)} or more to someone new) doesn't apply: ${policy.payee.first_payment ? "below the threshold" : "paid before"}`,
+  };
+}
+
 export const TRANSFER_RETAILER = "platform-held transfer (sandbox)";
 
 /**
@@ -215,6 +234,8 @@ export function screenTransfer(policy: TransferPolicyV1, req: TransferRequest, c
     result: req.amount_cents === policy.amount_cents ? "pass" : "fail",
     detail: `request ${req.amount_cents} cents, confirmed ${policy.amount_cents} cents`,
   });
+  const rule = reviewRule(policy);
+  if (rule) checks.push(rule);
   const line: CartLine = {
     product_id: `transfer:${policy.payee.id}`,
     name: `Transfer to ${policy.payee.name} (simulated, platform-held)`,

@@ -1,5 +1,5 @@
 {
-  "ran_at": "2026-10-17T08:08:29.910Z",
+  "ran_at": "2026-10-18T00:03:34.917Z",
   "web": "http://127.0.0.1:3100",
   "environment": "local web + API + worker, PayPal SANDBOX, synthetic data",
   "steps": [
@@ -8,7 +8,11 @@
       "ok": true
     },
     {
-      "step": "payer: paused, PayPal authorization reserved (live read)",
+      "step": "payer: paused by the payer's own rule with no evidence shared; PayPal authorization reserved (live read)",
+      "ok": true
+    },
+    {
+      "step": "payer: shared the conversation after the pause; quoted findings added, still paused",
       "ok": true
     },
     {

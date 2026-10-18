@@ -5,3 +5,4 @@ export * from "./scenarios.ts";
 export * from "./holds.ts";
 export * from "./payouts.ts";
 export * from "./evidence.ts";
+export * from "./context.ts";

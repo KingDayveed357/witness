@@ -49,6 +49,9 @@ describe("toRow", () => {
     expect(toRow({ ...base, state: "REJECTED", outcome: "REJECT", hold_auto_void_at: null })).toMatchObject({ policy: "Refused by rule", authorization: "None", review: "Not needed" });
     expect(toRow({ ...base, kind: "shopping", state: "VOIDED", outcome: "VOID", hold_auto_void_at: null, top_tactic: null, has_conversation: false })).toMatchObject({ policy: "Order mismatch: cancelled", workflow: "Agent purchase", payout: "n/a", pattern: "None found", evidenceSource: "None" });
   });
+  test("a pause by the payer's own rule, with nothing shared, says so instead of inventing a pattern", () => {
+    expect(toRow({ ...base, top_tactic: null, evidence_count: 0, has_conversation: false, rule_triggered: true })).toMatchObject({ pattern: "Payer's rule (no AI evidence)", evidenceSource: "None", policy: "Review required" });
+  });
   test("an agent instruction is evidence from the product page", () => {
     expect(toRow({ ...base, kind: "shopping", has_conversation: false, top_tactic: "instruction_to_agent" }).evidenceSource).toBe("Product page");
   });

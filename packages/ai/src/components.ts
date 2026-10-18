@@ -240,7 +240,8 @@ export type AiSubject =
 /** AI checks that must be present for a payment of this kind; a missing one holds it. */
 export function requiredAiChecks(kind: "shopping" | "transfer", hasConversation: boolean): string[] {
   const ids = kind === "shopping" ? ["ai.injection"] : [];
-  if (kind === "transfer" || hasConversation) ids.push("ai.manipulation");
+  // ADR-0019: evidence is optional. When a conversation IS supplied, analysing it is mandatory.
+  if (hasConversation) ids.push("ai.manipulation");
   return ids;
 }
 

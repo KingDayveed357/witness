@@ -65,6 +65,11 @@ export const TransferPolicyV1 = z.strictObject({
   amount_cents: z.number().int().positive().max(10_000_000),
   currency: z.enum(CURRENCIES),
   purpose: z.string().min(1).max(200).optional(),
+  /**
+   * The payer's own rule, set in advance (ADR-0019): a first payment to someone new at or above this
+   * amount always gets a second look, whatever the conversation says. Omitted means no such rule.
+   */
+  review_threshold_cents: z.number().int().positive().max(10_000_000).optional(),
   expires_at: z.iso.datetime({ offset: true }),
   max_payments: z.literal(1).default(1),
 });

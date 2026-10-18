@@ -24,6 +24,8 @@ interface HoldView {
   purpose: string | null;
   conversation: Conversation | null;
   concerns: { check_id: string; kind: string; detail: string; evidence: Evidence[] }[];
+  conversation_source: "submitted" | "shared_after_pause" | null;
+  feedback: { quote: string; note: string; at: string }[];
 }
 
 type Decision = "approve" | "deny";
@@ -126,7 +128,9 @@ export function Review({ id, token }: { id: string; token: string }) {
   const payer = hold.payer_name ?? "The account holder";
   const toWhom = hold.kind === "transfer" ? hold.payee?.name ?? "the recipient" : hold.items.map((i) => i.name).join(", ");
   const evidence = rankEvidence(hold.concerns.flatMap((c) => c.evidence));
-  const noEvidence = hold.concerns.filter((c) => !c.evidence.length);
+  const noEvidence = hold.concerns.filter((c) => !c.evidence.length && c.check_id !== "transfer.review_rule");
+  const rule = hold.concerns.find((c) => c.check_id === "transfer.review_rule");
+  const notes = new Map(hold.feedback.map((f) => [f.quote, f.note]));
   const decided = hold.state !== "HELD";
   const s = stageOf(hold.state);
 
@@ -145,7 +149,11 @@ export function Review({ id, token }: { id: string; token: string }) {
           {decided
             ? outcomeBody(hold)
             : hold.kind === "transfer"
-              ? "Second Key paused it because the conversation behind it has patterns common in scams. You decide whether it goes ahead."
+              ? rule && !evidence.length
+                ? `It matches a rule ${payer} set in advance: a second look for large first payments to someone new. That doesn't mean anything is wrong. You decide whether it goes ahead.`
+                : rule
+                  ? `It matches a rule ${payer} set in advance, and the conversation ${hold.conversation_source === "shared_after_pause" ? `${payer} shared` : "behind it"} has patterns common in scams. You decide whether it goes ahead.`
+                  : "Second Key paused it because the conversation behind it has patterns common in scams. You decide whether it goes ahead."
               : "Second Key paused it because the product page tried to give the agent instructions. You decide whether it goes ahead."}
         </p>
       </header>
@@ -217,7 +225,14 @@ export function Review({ id, token }: { id: string; token: string }) {
         <section className="stack" aria-labelledby="why">
           <h2 id="why" className="sk-section-title">What Second Key noticed</h2>
           {(showAll ? evidence : evidence.slice(0, 3)).map((e, i) => (
-            <QuoteCard key={i} e={e} sourceLabel={e.source === "listing" ? "On the product page the agent read" : "In the conversation"} active={focus !== null && focus === e.line} onFocus={() => setFocus(e.line ?? null)} />
+            <div key={i} className="stack-sm">
+              <QuoteCard e={e} sourceLabel={e.source === "listing" ? "On the product page the agent read" : hold.conversation_source === "shared_after_pause" ? `In what ${payer} shared after the pause` : "In the conversation"} active={focus !== null && focus === e.line} onFocus={() => setFocus(e.line ?? null)} />
+              {notes.has(e.quote) && (
+                <span className="small" style={{ paddingLeft: 8 }}>
+                  <strong>{payer} says this isn&apos;t right:</strong> “{notes.get(e.quote)}”
+                </span>
+              )}
+            </div>
           ))}
           {evidence.length > 3 && (
             <Button variant="quiet" size="sm" onClick={() => setShowAll(!showAll)}>
@@ -237,6 +252,18 @@ export function Review({ id, token }: { id: string; token: string }) {
         </section>
       )}
 
+      {rule && (
+        <section className="stack-sm" aria-label="The payer's rule">
+          <h2 className="sk-section-title">{payer}&apos;s own rule</h2>
+          <div className="sk-quote" style={{ paddingLeft: 24 }}>
+            <div className="tactic">Set by {payer} in advance</div>
+            <p style={{ marginTop: 4 }}>{rule.detail.replace(/^the payer's rule: /, "").replace(/^./, (c) => c.toUpperCase())}</p>
+            <p className="why">{payer} chose a trusted person to look at payments like this. It isn&apos;t a sign of fraud on its own.</p>
+          </div>
+          {!hold.conversation && <p className="small soft">{payer} didn&apos;t share the conversation behind this payment, so there are no quotes to show. Sharing is optional.</p>}
+        </section>
+      )}
+
       {!decided && (
         <Notice title="What Second Key can and can't know">
           {hold.kind === "transfer"
@@ -248,7 +275,7 @@ export function Review({ id, token }: { id: string; token: string }) {
       {hold.conversation && (
         <details className="sk-card" style={{ padding: 16 }}>
           <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-            Read the whole conversation <Demo>Synthetic</Demo>
+            Read the whole conversation{hold.conversation_source === "shared_after_pause" ? ` (shared by ${payer} after the pause)` : ""} <Demo>Synthetic</Demo>
           </summary>
           <div style={{ marginTop: 12 }}>
             <p className="xs muted" style={{ marginBottom: 8 }}>{hold.conversation.context}</p>

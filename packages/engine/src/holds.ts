@@ -10,13 +10,14 @@
 // opposite decision gets 409. The spent link can still show the outcome until it expires.
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { authorizationDiffs, expectationFor, fromCents, threeWayMatch, type EvidenceItem, type ResolvedCart } from "@witness/core";
 import { QUEUES, enqueue, recordChecks, recordDecision, schema, transition, withTx, dbOf, type PurchaseRow } from "@witness/db";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { nowOf, type EngineDeps } from "./deps.ts";
 import { issueApproval } from "./purchase.ts";
 import { getPayout, livePayout, maskEmail, type LivePayout, type PayoutView } from "./payouts.ts";
+import { conversationOf, feedbackOf } from "./context.ts";
 
 const { purchases, holds, intents, tenants, shoppers, checks: checksT } = schema;
 
@@ -47,6 +48,12 @@ export interface HoldView {
   purpose: string | null;
   conversation: { context: string; lines: { speaker: string; text: string }[] } | null;
   concerns: { check_id: string; kind: string; detail: string; evidence: EvidenceItem[] }[];
+  /** Where the conversation came from: sent with the payment, or shared by the payer after the pause (ADR-0019). */
+  conversation_source: "submitted" | "shared_after_pause" | null;
+  /** The analysis of context shared after the pause (pass = nothing found; it never unpauses). */
+  context_check: { result: string; detail: string } | null;
+  /** Notes where the payer says a finding is wrong. */
+  feedback: { quote: string; note: string; given_by: string; at: string }[];
   /** Recipient payout after an approved, captured transfer (null if none was made or configured). */
   payout: PayoutView | null;
   payout_configured: boolean;
@@ -62,9 +69,10 @@ async function load(d: EngineDeps, purchaseId: string) {
   const concerns = await db
     .select()
     .from(checksT)
-    .where(and(eq(checksT.purchaseId, purchaseId), eq(checksT.phase, "SCREEN"), eq(checksT.result, "unknown")))
+    .where(and(eq(checksT.purchaseId, purchaseId), inArray(checksT.phase, ["SCREEN", "CONTEXT"]), eq(checksT.result, "unknown")))
     .orderBy(asc(checksT.id));
-  return { p, h, i, payerName: shopper?.name ?? null, concerns, payout: await getPayout(d, purchaseId) };
+  const contextCheck = (await db.select().from(checksT).where(and(eq(checksT.purchaseId, purchaseId), eq(checksT.phase, "CONTEXT"))).orderBy(asc(checksT.id)).limit(1))[0] ?? null;
+  return { p, h, i, payerName: shopper?.name ?? null, concerns, payout: await getPayout(d, purchaseId), conv: await conversationOf(d, p), feedback: await feedbackOf(d, purchaseId), contextCheck };
 }
 type Ctx = NonNullable<Awaited<ReturnType<typeof load>>>;
 
@@ -87,7 +95,10 @@ function view(ctx: Ctx, viaLink = false): HoldView {
     payer_name: ctx.payerName,
     payee: policy.kind === "transfer" && policy.payee ? { name: policy.payee.name, first_payment: policy.payee.first_payment, ...(policy.payee.email ? { email: maskEmail(policy.payee.email) } : {}) } : null,
     purpose: policy.kind === "transfer" ? (policy.purpose ?? null) : null,
-    conversation: req.conversation ?? null,
+    conversation: (ctx.conv?.conversation as HoldView["conversation"]) ?? req.conversation ?? null,
+    conversation_source: ctx.conv?.source ?? null,
+    context_check: ctx.contextCheck ? { result: ctx.contextCheck.result, detail: ctx.contextCheck.detail } : null,
+    feedback: ctx.feedback,
     concerns: ctx.concerns.map((c) => ({ check_id: c.checkId, kind: c.kind, detail: c.detail, evidence: (c.evidence as EvidenceItem[] | null) ?? [] })),
     payout: ctx.payout,
     payout_configured: policy.kind === "transfer" && Boolean(policy.payee?.email),

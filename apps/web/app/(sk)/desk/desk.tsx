@@ -34,6 +34,7 @@ const CHECK_LABELS: Record<string, string> = {
   "ai.injection": "Instructions aimed at the agent",
   "transfer.amount": "Amount matches what was confirmed",
   "transfer.payee": "Recipient matches what was confirmed",
+  "transfer.review_rule": "Payer's own review rule",
   "intent.kind": "Request type matches the intent",
   "intent.not_expired": "Intent still valid",
   "intent.purchases_left": "Uses left on the intent",
@@ -404,7 +405,7 @@ function EvidencePeek({ row, mode }: { row: DeskRow; mode: Mode }) {
   useEffect(() => {
     api<EvidenceResp>(`/v1/purchases/${row.id}/evidence`, { console: mode === "operator" }).then(setEv, () => {});
   }, [row.id, mode]);
-  const quotes = ev ? rankEvidence(ev.checks.filter((c) => c.phase === "SCREEN").flatMap((c) => c.evidence ?? [])) : [];
+  const quotes = ev ? rankEvidence(ev.checks.filter((c) => c.phase === "SCREEN" || c.phase === "CONTEXT").flatMap((c) => c.evidence ?? [])) : [];
   const step = (label: string, who: string, value: string) => (
     <div style={{ flex: "1 1 0", minWidth: 0, borderTop: "3px solid var(--line-strong)", paddingTop: 6 }}>
       <div className="xs muted">
@@ -431,7 +432,8 @@ interface EvidenceResp {
   facts: Record<string, { title: string; description?: string }>;
   intent: { policy: { kind?: string; payee?: { name: string; first_payment: boolean; email?: string }; purpose?: string } } | null;
   payout: { status: string; receiver: string; amount: { value: string }; batch_id: string | null; last_error: string | null; updated_at: string } | null;
-  request: { kind: "shopping" | "transfer"; conversation: Conversation | null };
+  request: { kind: "shopping" | "transfer"; conversation: Conversation | null; conversation_source: "submitted" | "shared_after_pause" | null };
+  feedback: { quote: string; note: string; given_by: string; at: string }[];
   checks: { phase: string; check_id: string; kind: string; result: "pass" | "fail" | "unknown"; detail: string; evidence: Evidence[] | null; model: string | null; prompt_version: string | null; at: string }[];
   decisions: { outcome: string; reasons: string[]; decided_by: string; at: string }[];
   paypal_calls: { op: string; status: string; http_status: number | null; debug_id: string | null; at: string }[];
@@ -459,6 +461,9 @@ const EVENT_COPY: Record<string, string> = {
   "capture.outcome_unknown": "Capture outcome unclear; reconciling with PayPal",
   "void.retry": "Void retried with the same request ID",
   "void.unconfirmed": "Void not yet confirmed by PayPal",
+  "context.shared": "Payer shared the conversation after the pause",
+  "context.analysed": "Shared conversation analysed (can only add concerns)",
+  "evidence.disputed": "Payer disputed a finding",
   "payout.requested": "Payout to the recipient requested",
   "payout.accepted": "PayPal accepted the payout batch",
   "payout.status": "Payout status changed",
@@ -496,7 +501,7 @@ function IncidentDetail({ id, mode }: { id: string; mode: Mode }) {
   const amount = p.amount ? usd(p.amount.value) : "—";
   const screen = ev.checks.filter((c) => c.phase === "SCREEN");
   const recheck = ev.checks.filter((c) => c.phase !== "SCREEN");
-  const evidence = rankEvidence(screen.flatMap((c) => c.evidence ?? []));
+  const evidence = rankEvidence(ev.checks.filter((c) => c.phase === "SCREEN" || c.phase === "CONTEXT").flatMap((c) => c.evidence ?? []));
   const listing = Object.values(ev.facts ?? {})[0];
   const isTransfer = ev.request.kind === "transfer";
 
@@ -530,6 +535,17 @@ function IncidentDetail({ id, mode }: { id: string; mode: Mode }) {
         {evidence.map((e, i) => (
           <QuoteCard key={i} e={e} sourceLabel={e.source === "listing" ? "Product page the agent read" : "Conversation"} active={focus !== null && focus === e.line} onFocus={() => setFocus(e.line ?? null)} />
         ))}
+        {ev.feedback.length > 0 && (
+          <Notice title="The payer disputes a finding">
+            {ev.feedback.map((f, i) => (
+              <div key={i} className="small">
+                On “{f.quote}”: “{f.note}” <span className="muted">· {when(f.at)}</span>
+              </div>
+            ))}
+          </Notice>
+        )}
+        {ev.request.kind === "transfer" && !ev.request.conversation && <p className="small soft">No conversation was shared. Any pause comes from the payer&apos;s own rule.</p>}
+        {ev.request.conversation_source === "shared_after_pause" && <p className="xs muted">Conversation shared by the payer after the pause; its analysis could only add concerns.</p>}
         {ev.request.conversation && (
           <div className="sk-card tint" style={{ padding: 12 }}>
             <p className="xs muted" style={{ margin: "0 8px 8px" }}>{ev.request.conversation.context}</p>

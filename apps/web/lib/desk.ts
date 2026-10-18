@@ -20,6 +20,8 @@ export interface Incident {
   top_tactic: string | null;
   evidence_count: number;
   has_conversation: boolean;
+  /** The payer's own review rule paused it (ADR-0019). */
+  rule_triggered?: boolean;
   last_event: string | null;
   last_event_at: string | null;
   paypal_authorization_id: string | null;
@@ -124,7 +126,7 @@ export function toRow(i: Incident, payoutsConfigured = true, label: (tactic: str
     counterparty: (i.product ?? "—").replace(/ \(simulated, platform-held\)$/, ""),
     amountCents: i.amount_cents,
     currency: i.currency,
-    pattern: i.top_tactic ? label(i.top_tactic) : "None found",
+    pattern: i.top_tactic ? label(i.top_tactic) : i.rule_triggered ? "Payer's rule (no AI evidence)" : "None found",
     evidenceCount: i.evidence_count,
     evidenceSource: i.has_conversation ? "Conversation" : i.top_tactic === "instruction_to_agent" ? "Product page" : "None",
     policy,

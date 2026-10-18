@@ -38,6 +38,9 @@ export const RULES: Rule[] = [
   { method: "POST", pattern: new RegExp(`^/v1/intents/${ID}/(confirm|revoke)$`), role: "shopper" },
   { method: "GET", pattern: /^\/v1\/me\/purchases$/, role: "shopper" },
   { method: "POST", pattern: new RegExp(`^/v1/purchases/${ID}/hold-link$`), role: "shopper" },
+  { method: "POST", pattern: new RegExp(`^/v1/me/purchases/${ID}/context$`), role: "shopper", costly: true },
+  { method: "POST", pattern: new RegExp(`^/v1/me/purchases/${ID}/feedback$`), role: "shopper" },
+  { method: "POST", pattern: new RegExp(`^/v1/me/holds/${ID}/cancel$`), role: "shopper" },
 
   { method: "GET", pattern: new RegExp(`^/v1/holds/${ID}$`), role: "token" },
   { method: "GET", pattern: new RegExp(`^/v1/holds/${ID}/verification$`), role: "token" },

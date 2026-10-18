@@ -59,10 +59,15 @@ try {
   await pay.goto(`${WEB}/pay`, { waitUntil: "networkidle0" });
   await shot(pay, "02-payer-compose");
   await clickText(pay, "Send $1,800.00");
-  await waitText(pay, "We've paused this payment", 60_000);
+  // ADR-0019: nothing shared; Rose's own rule pauses it. Then she chooses to share for a second opinion.
+  await waitText(pay, "Paused by your rule", 60_000);
   await waitText(pay, "reserved, nothing taken yet");
   await shot(pay, "03-payer-paused");
-  rec("payer: paused, PayPal authorization reserved (live read)", true);
+  rec("payer: paused by the payer's own rule with no evidence shared; PayPal authorization reserved (live read)", true);
+  await clickText(pay, "Share the conversation");
+  await waitText(pay, "In what you shared", 60_000);
+  await shot(pay, "03b-payer-second-opinion");
+  rec("payer: shared the conversation after the pause; quoted findings added, still paused", (await text(pay)).includes("Paused for review") || (await text(pay)).includes("paused"));
 
   // 2. Ask the trusted contact; open the one-time link on a phone
   await clickText(pay, "Ask Sarah to check");
@@ -113,7 +118,7 @@ try {
   const pwFile = process.env.SK_CONSOLE_PASSWORD_FILE;
   if (pwFile) {
     const desk = await desktop();
-    await desk.goto(`${WEB}/desk`, { waitUntil: "networkidle0" });
+    await desk.goto(`${WEB}/desk?signin=1`, { waitUntil: "networkidle0" }); // the Desk is public by default
     await desk.type('input[type="password"]', readFileSync(pwFile, "utf8").trim());
     await Promise.all([desk.waitForNavigation(), desk.click("button.sk-btn.primary")]);
     const id = href.split("/")[2]!.split("?")[0]!;

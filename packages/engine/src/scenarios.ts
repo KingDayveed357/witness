@@ -14,7 +14,7 @@ export interface Scenario {
   adapter: string;
   expected: "CAPTURE" | "REJECT" | "HOLD" | "VOID";
   /** Second Key scenarios: the transfer the payer confirms (ADR-0016) and the conversation she was in. */
-  transfer?: { payee: TransferPolicyV1["payee"]; purpose: string; conversation: TransferRequest["conversation"] };
+  transfer?: { payee: TransferPolicyV1["payee"]; purpose: string; conversation: NonNullable<TransferRequest["conversation"]>; review_threshold_cents?: number };
 }
 
 // Synthetic, fictional conversations (the scam one is the transcript of the disclosed synthetic demo
@@ -50,14 +50,14 @@ export const SCENARIOS: Record<string, Scenario> = {
     product: "transfer:payee_jmorgan",
     adapter: "standard",
     expected: "HOLD",
-    transfer: { payee: { id: "payee_jmorgan", name: "J. Morgan", first_payment: true }, purpose: "Bail for Danny", conversation: SCAM_CALL },
+    transfer: { payee: { id: "payee_jmorgan", name: "J. Morgan", first_payment: true }, purpose: "Bail for Danny", conversation: SCAM_CALL, review_threshold_cents: 50000 },
   },
   benign_transfer: {
     title: "Second Key: contractor's agreed invoice, $1,800 (simulated transfer, sandbox)",
     product: "transfer:payee_morgan_sons",
     adapter: "standard",
     expected: "CAPTURE",
-    transfer: { payee: { id: "payee_morgan_sons", name: "Morgan & Sons Builders", first_payment: false }, purpose: "Kitchen renovation, final invoice", conversation: BENIGN_CHAT },
+    transfer: { payee: { id: "payee_morgan_sons", name: "Morgan & Sons Builders", first_payment: false }, purpose: "Kitchen renovation, final invoice", conversation: BENIGN_CHAT, review_threshold_cents: 50000 },
   },
 };
 
@@ -65,7 +65,7 @@ export const DEMO_PAYEE = { id: "payee_jmorgan", name: "J. Morgan", first_paymen
 const DEMO_AMOUNT_CENTS = 180000;
 
 /** Second Key: exactly $1,800 to one payee, as the payer confirmed it (ADR-0016). */
-export function transferPolicy(now: Date, t: { payee: TransferPolicyV1["payee"]; purpose: string } = { payee: { ...DEMO_PAYEE }, purpose: "Kitchen renovation invoice" }): TransferPolicyV1 {
+export function transferPolicy(now: Date, t: { payee: TransferPolicyV1["payee"]; purpose: string; review_threshold_cents?: number } = { payee: { ...DEMO_PAYEE }, purpose: "Kitchen renovation invoice" }): TransferPolicyV1 {
   return {
     version: 1,
     kind: "transfer",
@@ -73,6 +73,7 @@ export function transferPolicy(now: Date, t: { payee: TransferPolicyV1["payee"];
     amount_cents: DEMO_AMOUNT_CENTS,
     currency: "USD",
     purpose: t.purpose,
+    ...(t.review_threshold_cents !== undefined ? { review_threshold_cents: t.review_threshold_cents } : {}),
     expires_at: new Date(now.getTime() + 86_400_000).toISOString(),
     max_payments: 1,
   };
@@ -80,7 +81,7 @@ export function transferPolicy(now: Date, t: { payee: TransferPolicyV1["payee"];
 
 /** The transfer request a payer's app sends: it restates the confirmed payee and amount. */
 export function transferRequest(intentId: string, conversation: TransferRequest["conversation"], payeeId: string = DEMO_PAYEE.id): TransferRequest {
-  return { kind: "transfer", intent_id: intentId, payee_id: payeeId, amount_cents: DEMO_AMOUNT_CENTS, currency: "USD", conversation };
+  return { kind: "transfer", intent_id: intentId, payee_id: payeeId, amount_cents: DEMO_AMOUNT_CENTS, currency: "USD", ...(conversation ? { conversation } : {}) };
 }
 
 export function demoPolicy(now: Date) {
@@ -103,6 +104,8 @@ export async function runScenario(
   agent: Principal,
   shopperId: string,
   name: string,
+  /** Transfers: share the conversation with the payment (default), or not (ADR-0019: evidence is optional). */
+  opts: { evidence?: boolean } = {},
 ): Promise<{ scenario: Scenario; intentId: string; result: SubmitResult } | null> {
   const scenario = SCENARIOS[name];
   if (!scenario) return null;
@@ -122,7 +125,7 @@ export async function runScenario(
     d,
     agent,
     `scenario-${name}-${randomBytes(6).toString("hex")}`,
-    t ? transferRequest(created.intent.id, t.conversation, t.payee.id) : { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
+    t ? transferRequest(created.intent.id, opts.evidence === false ? undefined : t.conversation, t.payee.id) : { intent_id: created.intent.id, retailer: "rei.com", lines: [{ product_id: scenario.product, quantity: 1 }] },
     { adapter: scenario.adapter },
   );
   return { scenario, intentId: created.intent.id, result };

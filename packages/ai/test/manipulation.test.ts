@@ -98,9 +98,10 @@ describe("checkManipulation (the engine's screening check)", () => {
   });
 });
 
-describe("required AI checks (ADR-0016 bypass guard)", () => {
-  test("transfer always requires ai.manipulation; shopping requires ai.injection, plus manipulation with a conversation", () => {
-    expect(requiredAiChecks("transfer", false)).toEqual(["ai.manipulation"]);
+describe("required AI checks (ADR-0016 guard, ADR-0019 optional evidence)", () => {
+  test("a supplied conversation must be analysed; shopping always needs the listing check", () => {
+    expect(requiredAiChecks("transfer", false)).toEqual([]);
+    expect(requiredAiChecks("transfer", true)).toEqual(["ai.manipulation"]);
     expect(requiredAiChecks("shopping", false)).toEqual(["ai.injection"]);
     expect(requiredAiChecks("shopping", true)).toEqual(["ai.injection", "ai.manipulation"]);
   });
@@ -111,10 +112,9 @@ describe("required AI checks (ADR-0016 bypass guard)", () => {
     expect(enforceRequired(["ai.manipulation"], [{ id: "ai.manipulation", result: "pass", detail: "" }])).toHaveLength(1);
   });
 
-  test("a transfer screened without a conversation still holds", async () => {
+  test("a transfer without a conversation makes no model call (its rules come from the payer's policy)", async () => {
     const ai = new FakeLlm().on("manipulation", reply({ risk: "low", recommended_action: "proceed" }));
-    const out = await screenPaymentAi(ai, { kind: "transfer" });
-    expect(out).toEqual([expect.objectContaining({ id: "ai.manipulation", result: "unknown" })]);
+    expect(await screenPaymentAi(ai, { kind: "transfer" })).toEqual([]);
     expect(ai.calls).toHaveLength(0);
   });
 
