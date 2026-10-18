@@ -61,10 +61,30 @@ describe("parsing", () => {
     expect(parseIntentPolicy({ ...TRANSFER, kind: "shopping" }).success).toBe(false);
   });
 
-  test("transfer request requires a conversation; shopping request doesn't", () => {
+  test("a conversation is optional on transfers (ADR-0019) but must be well-formed when given", () => {
     const { conversation: _c, ...bare } = TR;
-    expect(parsePaymentRequest(bare).success).toBe(false);
+    expect(parsePaymentRequest(bare).success).toBe(true);
     expect(parsePaymentRequest(TR).success).toBe(true);
+    expect(parsePaymentRequest({ ...TR, conversation: { lines: [] } }).success).toBe(false);
     expect(parsePaymentRequest(req("TRL-GRY-10")).success).toBe(true);
+  });
+});
+
+describe("the payer's review rule (ADR-0019)", () => {
+  const ruled = { ...TRANSFER, review_threshold_cents: 50000 };
+  const rule = (p: TransferPolicyV1) => screenPayment(p, { ...TR, amount_cents: p.amount_cents }, new Map(), CTX).checks.find((c) => c.id === "transfer.review_rule");
+  test("a first payment at or above the payer's threshold is held for a second look, with no AI involved", () => {
+    const c = rule(ruled);
+    expect(c).toMatchObject({ result: "unknown" });
+    expect(c?.detail).toMatch(/second look for first payments of \$500\.00 or more/);
+    expect(screenOutcome(screenPayment(ruled, TR, new Map(), CTX).checks)).toBe("HOLD");
+  });
+  test("below the threshold, or paid before, the rule passes; no rule set means no check", () => {
+    expect(rule({ ...ruled, amount_cents: 49999 })?.result).toBe("pass");
+    expect(rule({ ...ruled, payee: { ...ruled.payee, first_payment: false } })?.result).toBe("pass");
+    expect(rule(TRANSFER)).toBeUndefined();
+  });
+  test("the rule never fails a payment: the payer decides with a reviewer, the engine doesn't refuse", () => {
+    expect(screenPayment(ruled, TR, new Map(), CTX).checks.some((c) => c.result === "fail")).toBe(false);
   });
 });

@@ -18,6 +18,8 @@ export interface ConsoleOptions {
   demoAi?: LlmClient | undefined;
   /** Max judge screens per minute for this process (default 30). */
   demoScreensPerMinute?: number | undefined;
+  /** Max public evidence analyses (/try) per minute for this process (default 20). */
+  demoAnalysesPerMinute?: number | undefined;
 }
 
 const cents = (n: unknown) => (n == null ? null : Number(n));
@@ -30,9 +32,20 @@ async function ledger(d: EngineDeps, tenantId: string, limit: number, since?: Da
             p.cart->'lines'->0->>'name' AS product, coalesce(p.request->>'kind', 'shopping') AS kind,
             (SELECT c.check_id FROM checks c WHERE c.purchase_id = p.id AND c.result <> 'pass' ORDER BY c.id LIMIT 1) AS primary_check,
             (SELECT x.decided_by FROM decisions x WHERE x.purchase_id = p.id ORDER BY x.id DESC LIMIT 1) AS decided_by,
-            h.resolution, h.auto_void_at
+            -- strongest pattern first: same priority order as apps/web/lib/sk.ts rankEvidence
+            (SELECT e->>'tactic' FROM checks c, jsonb_array_elements(c.evidence) e
+              WHERE c.purchase_id = p.id AND c.result <> 'pass' AND c.evidence IS NOT NULL
+              ORDER BY array_position(ARRAY['secrecy','urgency','threat','safe_account','remote_access','unusual_payment_channel','instruction_to_agent','authority_pressure','impersonation','emotional_manipulation','too_good_to_be_true'], e->>'tactic') NULLS LAST
+              LIMIT 1) AS top_tactic,
+            (SELECT coalesce(sum(jsonb_array_length(c.evidence)), 0)::int FROM checks c WHERE c.purchase_id = p.id AND c.result <> 'pass' AND c.evidence IS NOT NULL) AS evidence_count,
+            ((p.request ? 'conversation') OR EXISTS (SELECT 1 FROM shared_context sc WHERE sc.purchase_id = p.id)) AS has_conversation,
+            EXISTS (SELECT 1 FROM checks c WHERE c.purchase_id = p.id AND c.check_id = 'transfer.review_rule' AND c.result = 'unknown') AS rule_triggered,
+            (SELECT a.event_type FROM audit_log a WHERE a.purchase_id = p.id ORDER BY a.epoch DESC, a.seq DESC LIMIT 1) AS last_event,
+            (SELECT a.at FROM audit_log a WHERE a.purchase_id = p.id ORDER BY a.epoch DESC, a.seq DESC LIMIT 1) AS last_event_at,
+            p.paypal_authorization_id, h.resolution, h.auto_void_at, po.status AS payout_status
        FROM purchases p
        LEFT JOIN holds h ON h.purchase_id = p.id
+       LEFT JOIN payouts po ON po.purchase_id = p.id
       WHERE p.tenant_id = $1 AND ($3::timestamptz IS NULL OR p.created_at >= $3)
       ORDER BY p.created_at DESC
       LIMIT $2`,
@@ -47,6 +60,14 @@ async function ledger(d: EngineDeps, tenantId: string, limit: number, since?: Da
     decided_by: (r.decided_by as string | null) ?? null,
     hold_resolution: (r.resolution as string | null) ?? null,
     hold_auto_void_at: r.auto_void_at ? (r.auto_void_at as Date).toISOString() : null,
+    top_tactic: (r.top_tactic as string | null) ?? null,
+    evidence_count: Number(r.evidence_count ?? 0),
+    has_conversation: Boolean(r.has_conversation),
+    rule_triggered: Boolean(r.rule_triggered),
+    last_event: (r.last_event as string | null) ?? null,
+    last_event_at: r.last_event_at ? (r.last_event_at as Date).toISOString() : null,
+    paypal_authorization_id: (r.paypal_authorization_id as string | null) ?? null,
+    payout_status: (r.payout_status as string | null) ?? null,
     retailer: (r.retailer as string | null) ?? null,
     amount_cents: cents(r.amount_cents),
     currency: (r.currency as string | null) ?? null,
@@ -117,6 +138,19 @@ export function registerConsole(app: FastifyInstance, d: EngineDeps, auth: Auth,
     const e = (await d.pool.query("SELECT epoch, started_at FROM audit_epochs ORDER BY epoch DESC LIMIT 1")).rows[0];
     const since = req.query.scope === "session" && e && e.epoch > 1 ? (e.started_at as Date) : undefined;
     return { purchases: await ledger(d, tenantOf(req), limit, since), session_started_at: since?.toISOString() ?? null };
+  });
+
+  /**
+   * Public, read-only Protection Desk feed: the demo tenant's CURRENT demo session only (since the
+   * last reset), no PII (synthetic data; no payout receiver, no conversation). Detail goes through the
+   * evidence endpoint, which masks the payee email.
+   */
+  app.get<{ Querystring: { limit?: string } }>("/v1/demo/incidents", { preHandler: auth("demo", "admin") }, async (req) => {
+    const limit = Math.min(300, Math.max(1, Number(req.query.limit ?? 200) || 200));
+    const e = (await d.pool.query("SELECT epoch, started_at FROM audit_epochs ORDER BY epoch DESC LIMIT 1")).rows[0];
+    const since = e && e.epoch > 1 ? (e.started_at as Date) : undefined;
+    const rows = (await ledger(d, tenantOf(req), limit, since)).map(({ reasons: _r, intent_id: _i, ...rest }) => rest);
+    return { purchases: rows, session_started_at: since?.toISOString() ?? null, read_only: true };
   });
 
   app.get("/v1/console/holds", { preHandler: auth("ops", "admin") }, async (req) => {

@@ -2,7 +2,7 @@
 // output leads to human review, invented quotes are discarded, and policy can override a "low" verdict.
 import { describe, expect, test } from "vitest";
 import { FakeLlm, checkManipulation, enforceRequired, requiredAiChecks, screenPaymentAi, type AiFailureReason } from "@witness/ai";
-import { assess, decide, locate, type Conversation } from "../src/manipulation.ts";
+import { assess, decide, explainDecision, locate, type Conversation } from "../src/manipulation.ts";
 
 const conv: Conversation = {
   context: "Rose is asked to send money.",
@@ -98,9 +98,10 @@ describe("checkManipulation (the engine's screening check)", () => {
   });
 });
 
-describe("required AI checks (ADR-0016 bypass guard)", () => {
-  test("transfer always requires ai.manipulation; shopping requires ai.injection, plus manipulation with a conversation", () => {
-    expect(requiredAiChecks("transfer", false)).toEqual(["ai.manipulation"]);
+describe("required AI checks (ADR-0016 guard, ADR-0019 optional evidence)", () => {
+  test("a supplied conversation must be analysed; shopping always needs the listing check", () => {
+    expect(requiredAiChecks("transfer", false)).toEqual([]);
+    expect(requiredAiChecks("transfer", true)).toEqual(["ai.manipulation"]);
     expect(requiredAiChecks("shopping", false)).toEqual(["ai.injection"]);
     expect(requiredAiChecks("shopping", true)).toEqual(["ai.injection", "ai.manipulation"]);
   });
@@ -111,10 +112,9 @@ describe("required AI checks (ADR-0016 bypass guard)", () => {
     expect(enforceRequired(["ai.manipulation"], [{ id: "ai.manipulation", result: "pass", detail: "" }])).toHaveLength(1);
   });
 
-  test("a transfer screened without a conversation still holds", async () => {
+  test("a transfer without a conversation makes no model call (its rules come from the payer's policy)", async () => {
     const ai = new FakeLlm().on("manipulation", reply({ risk: "low", recommended_action: "proceed" }));
-    const out = await screenPaymentAi(ai, { kind: "transfer" });
-    expect(out).toEqual([expect.objectContaining({ id: "ai.manipulation", result: "unknown" })]);
+    expect(await screenPaymentAi(ai, { kind: "transfer" })).toEqual([]);
     expect(ai.calls).toHaveLength(0);
   });
 
@@ -123,5 +123,20 @@ describe("required AI checks (ADR-0016 bypass guard)", () => {
     const out = await screenPaymentAi(ai, { kind: "transfer" }, conv);
     expect(ai.calls.map((c) => c.prompt)).toEqual(["manipulation"]);
     expect(out.map((c) => c.id)).toEqual(["ai.manipulation"]);
+  });
+});
+
+describe("explainDecision (the reason shown to people is the rule that ran)", () => {
+  test("every risk level and evidence combination maps to the same intervention as decide()", () => {
+    const g = (tactic: string) => ({ tactic, quote: "q", speaker: "s", model_speaker: "s", why: "w", line_index: 0 }) as never;
+    const out = (risk: string) => ({ risk, tactics: [], legitimate_explanation: "", confidence: 0.5, needs_independent_verification: false, recommended_action: "proceed" }) as never;
+    const cases: [unknown, unknown[]][] = [[null, []], [out("high"), []], [out("medium"), [g("urgency")]], [out("medium"), []], [out("insufficient_information"), []], [out("low"), [g("threat"), g("safe_account")]], [out("low"), [g("urgency")]]];
+    const rules = new Set<string>();
+    for (const [o, gr] of cases) {
+      const e = explainDecision(o as never, gr as never);
+      expect(e.intervention).toBe(decide(o as never, gr as never));
+      rules.add(e.rule);
+    }
+    expect(rules.size).toBe(7);
   });
 });

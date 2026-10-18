@@ -16,6 +16,10 @@ import {
   runScenario,
   SCENARIOS,
   transferPolicy,
+  shareContext,
+  giveFeedback,
+  conversationOf,
+  feedbackOf,
   getPayout,
   livePayout,
   maskEmail,
@@ -33,6 +37,7 @@ import {
 } from "@witness/engine";
 import { PayPalHttpError, PayPalNetworkError } from "@witness/paypal";
 import { registerConsole, type ConsoleOptions } from "./console.ts";
+import { registerAnalyze } from "./analyze.ts";
 import { registerDisputes } from "./disputes.ts";
 
 export interface AppOptions {
@@ -56,6 +61,13 @@ const problem = (reply: FastifyReply, status: number, title: string, detail?: st
     .send({ type: "about:blank", title, status, ...(detail ? { detail } : {}), trace_id: reply.request.id });
 
 const shopperIdOf = (p: Principal) => (p.principal.startsWith("shopper:") ? p.principal.slice("shopper:".length) : null);
+
+/** Mask a transfer payee's email in an intent view (the receiver is shown masked everywhere). */
+function maskIntentEmail<T extends { policy: unknown }>(v: T): T {
+  const policy = v.policy as { kind?: string; payee?: { email?: string } } | null;
+  if (policy?.kind !== "transfer" || !policy.payee?.email) return v;
+  return { ...v, policy: { ...policy, payee: { ...policy.payee, email: maskEmail(policy.payee.email) } } };
+}
 
 /** The audit epoch that holds a purchase's events (a demo reset starts a new epoch). */
 async function epochOf(client: { query: (q: string, v: unknown[]) => Promise<{ rows: { epoch: number | null }[] }> }, purchaseId: string): Promise<{ epoch?: number }> {
@@ -176,6 +188,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
     const p = await loadPurchase(req);
     if (!p) return problem(reply, 404, "Purchase not found");
     const db = dbOf(d.pool);
+    const conv = await conversationOf(d, p);
     const [intent, checks, decisions, calls] = await Promise.all([
       getIntent(d, p.tenantId, p.intentId),
       db.select().from(schema.checks).where(eq(schema.checks.purchaseId, p.id)).orderBy(asc(schema.checks.id)),
@@ -188,9 +201,10 @@ export function buildApp(o: AppOptions): FastifyInstance {
       return {
         purchase: purchaseView(p),
         payout: await getPayout(d, p.id),
-        intent: intent ? intentView(intent) : null,
+        intent: intent ? maskIntentEmail(intentView(intent)) : null,
         facts: p.facts,
-        request: { kind: (p.request as { kind?: string } | null)?.kind === "transfer" ? "transfer" : "shopping", conversation: (p.request as { conversation?: unknown } | null)?.conversation ?? null },
+        request: { kind: (p.request as { kind?: string } | null)?.kind === "transfer" ? "transfer" : "shopping", conversation: conv?.conversation ?? null, conversation_source: conv?.source ?? null },
+        feedback: await feedbackOf(d, p.id),
         checks: checks.map((c) => ({ phase: c.phase, check_id: c.checkId, kind: c.kind, result: c.result, detail: c.detail, line: c.line, evidence: c.evidence ?? null, model: c.model, prompt_version: c.promptVersion, at: c.createdAt })),
         decisions: decisions.map((x) => ({ outcome: x.outcome, reasons: x.reasons, decided_by: x.decidedBy, at: x.createdAt })),
         paypal_calls: calls.map((c) => ({ op: c.op, request_id: c.requestId, status: c.status, http_status: c.httpStatus, debug_id: c.debugId, at: c.createdAt })),
@@ -269,6 +283,25 @@ export function buildApp(o: AppOptions): FastifyInstance {
     return sendHold(reply, await verifyHold(d, req.params.id, actor, req.principal?.tenantId));
   });
 
+  // ---- the payer's own paused payment (ADR-0019) -------------------------------------------
+  const payer = (req: FastifyRequest) => ({ tenantId: req.principal!.tenantId, shopperId: shopperIdOf(req.principal!) });
+  const sendCtx = (reply: FastifyReply, r: { kind: "ok"; value: unknown } | { kind: "error"; status: number; title: string; detail?: string }) => (r.kind === "error" ? problem(reply, r.status, r.title, r.detail) : r.value);
+  app.post<{ Params: { id: string } }>("/v1/me/purchases/:id/context", { preHandler: auth("shopper") }, async (req, reply) => {
+    const { tenantId, shopperId } = payer(req);
+    if (!shopperId) return problem(reply, 403, "Payer only");
+    return sendCtx(reply, await shareContext(d, tenantId, shopperId, req.params.id, req.body));
+  });
+  app.post<{ Params: { id: string } }>("/v1/me/purchases/:id/feedback", { preHandler: auth("shopper") }, async (req, reply) => {
+    const { tenantId, shopperId } = payer(req);
+    if (!shopperId) return problem(reply, 403, "Payer only");
+    return sendCtx(reply, await giveFeedback(d, tenantId, shopperId, req.params.id, req.body));
+  });
+  app.post<{ Params: { id: string } }>("/v1/me/holds/:id/cancel", { preHandler: auth("shopper") }, async (req, reply) => {
+    const { tenantId, shopperId } = payer(req);
+    if (!shopperId) return problem(reply, 403, "Payer only");
+    return sendHold(reply, await resolveHold(d, req.params.id, "deny", { shopperId }, tenantId));
+  });
+
   for (const decision of ["approve", "deny"] as const) {
     app.post<{ Params: { id: string }; Body: { token?: string } }>(`/v1/holds/:id/${decision}`, async (req, reply) => {
       const actor = await holdActor(req, req.body?.token);
@@ -294,6 +327,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
               currency: "USD",
               purpose: s.transfer.purpose,
               conversation: s.transfer.conversation,
+              review_threshold_cents: s.transfer.review_threshold_cents ?? null,
             },
           }
         : {}),
@@ -303,7 +337,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
   app.post<{ Params: { name: string } }>("/v1/demo/scenarios/:name", { preHandler: auth("demo", "admin") }, async (req, reply) => {
     if (!o.demoShopperId) return problem(reply, 503, "Demo not configured", "WITNESS_DEMO_SHOPPER_ID is not set");
     const who = req.principal!;
-    const r = await runScenario(d, { ...who, principal: `agent:demo-${who.principal}` }, o.demoShopperId, req.params.name);
+    const r = await runScenario(d, { ...who, principal: `agent:demo-${who.principal}` }, o.demoShopperId, req.params.name, { evidence: (req.query as { evidence?: string }).evidence !== "none" });
     if (!r) return problem(reply, 404, "Unknown scenario", req.params.name);
     if (r.result.kind === "error") return problem(reply, r.result.status, r.result.title, r.result.detail);
     return reply.code(202).send({ scenario: req.params.name, expected: r.scenario.expected, intent_id: r.intentId, purchase: purchaseView(r.result.purchase) });
@@ -380,6 +414,7 @@ export function buildApp(o: AppOptions): FastifyInstance {
   });
 
   registerConsole(app, d, auth, problem, o.console);
+  registerAnalyze(app, auth, problem, { demoAi: o.console?.demoAi, demoAnalysesPerMinute: o.console?.demoAnalysesPerMinute });
   registerDisputes(app, d, auth, problem);
 
   // ---- public verification ----------------------------------------------------------------

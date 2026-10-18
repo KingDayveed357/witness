@@ -79,7 +79,7 @@ export const purchases = pgTable("purchases", {
 export const checks = pgTable("checks", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   purchaseId: text("purchase_id").notNull(),
-  phase: text("phase", { enum: ["SCREEN", "VERIFY", "RECHECK"] }).notNull(),
+  phase: text("phase", { enum: ["SCREEN", "VERIFY", "RECHECK", "CONTEXT"] }).notNull(),
   checkId: text("check_id").notNull(),
   kind: text("kind", { enum: ["deterministic", "ai"] }).notNull(),
   result: text("result", { enum: ["pass", "fail", "unknown"] }).notNull(),
@@ -89,6 +89,24 @@ export const checks = pgTable("checks", {
   promptVersion: text("prompt_version"),
   /** Grounded evidence for AI checks (0003); null for deterministic checks. */
   evidence: jsonb("evidence"),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** Conversation a payer shared after the pause (0005). Never unpauses anything. */
+export const sharedContext = pgTable("shared_context", {
+  purchaseId: text("purchase_id").primaryKey(),
+  conversation: jsonb("conversation").notNull(),
+  sharedBy: text("shared_by").notNull(),
+  createdAt: ts("created_at").notNull().defaultNow(),
+});
+
+/** A payer saying a finding is wrong (0005): a note for the reviewer and the Desk, not a policy input. */
+export const evidenceFeedback = pgTable("evidence_feedback", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  purchaseId: text("purchase_id").notNull(),
+  quote: text("quote").notNull(),
+  note: text("note").notNull(),
+  givenBy: text("given_by").notNull(),
   createdAt: ts("created_at").notNull().defaultNow(),
 });
 

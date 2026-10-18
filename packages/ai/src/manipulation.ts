@@ -110,18 +110,36 @@ export function locate(conv: Conversation, quote: string): number {
   return conv.lines.findIndex((l) => norm(l.text).includes(q));
 }
 
+const SEVERE = ["safe_account", "remote_access", "unusual_payment_channel", "threat"];
+
+export interface Decision {
+  intervention: Intervention;
+  /** Which deterministic rule applied, and why, in words a person can check. */
+  rule: string;
+  reason: string;
+}
+
 /**
- * Deterministic policy. Anything other than a confident, grounded "low" leads to human review.
- * Model failure or schema failure → HOLD (fail closed).
+ * Deterministic policy, with its reason. Anything other than a confident, grounded "low" leads to
+ * human review. Model failure or schema failure → HOLD (fail closed). `decide` is defined from this,
+ * so the explanation shown to people can never drift from the rule that ran.
  */
+export function explainDecision(out: DetectorOutput | null, grounded: GroundedTactic[]): Decision {
+  if (!out) return { intervention: "HOLD_FOR_TRUSTED_CONTACT", rule: "R0 fail closed", reason: "The model gave no usable answer, so the payment is held for review." };
+  if (out.risk === "high") return { intervention: "HOLD_FOR_TRUSTED_CONTACT", rule: "R1 high risk", reason: "The model reported high risk, so the payment is held for review." };
+  if (out.risk === "medium")
+    return grounded.length
+      ? { intervention: "HOLD_FOR_TRUSTED_CONTACT", rule: "R2 medium risk with evidence", reason: "Medium risk, and at least one quoted line was found in the text, so the payment is held for review." }
+      : { intervention: "VERIFY_BEFORE_PAYING", rule: "R3 medium risk without evidence", reason: "Medium risk, but none of the model's quotes could be found in the text, so verify before paying." };
+  if (out.risk === "insufficient_information") return { intervention: "VERIFY_BEFORE_PAYING", rule: "R4 not enough information", reason: "There isn't enough to judge, so verify before paying." };
+  const severe = grounded.filter((g) => SEVERE.includes(g.tactic));
+  return severe.length >= 2
+    ? { intervention: "VERIFY_BEFORE_PAYING", rule: "R5 low risk but severe patterns", reason: `The model said low risk, but found ${severe.length} severe patterns in the text, so verify before paying.` }
+    : { intervention: "PROCEED", rule: "R6 low risk", reason: "Low risk and no severe patterns: this check doesn't pause the payment. Transaction rules still apply." };
+}
+
 export function decide(out: DetectorOutput | null, grounded: GroundedTactic[]): Intervention {
-  if (!out) return "HOLD_FOR_TRUSTED_CONTACT";
-  if (out.risk === "high") return "HOLD_FOR_TRUSTED_CONTACT";
-  if (out.risk === "medium") return grounded.length ? "HOLD_FOR_TRUSTED_CONTACT" : "VERIFY_BEFORE_PAYING";
-  if (out.risk === "insufficient_information") return "VERIFY_BEFORE_PAYING";
-  // "low": proceed only if the model also reported no grounded tactics of the high-signal kinds
-  const severe = grounded.filter((g) => ["safe_account", "remote_access", "unusual_payment_channel", "threat"].includes(g.tactic));
-  return severe.length >= 2 ? "VERIFY_BEFORE_PAYING" : "PROCEED";
+  return explainDecision(out, grounded).intervention;
 }
 
 export async function assess(ai: LlmClient, conv: Conversation, prompt: PromptDef = MANIPULATION_V1): Promise<Assessment> {

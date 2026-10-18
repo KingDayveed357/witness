@@ -147,10 +147,10 @@ describe("no path around the other kind's checks", () => {
     expect(r.json().reasons.join(" ")).toMatch(/intent\.kind/);
   });
 
-  test("a transfer without a conversation, or with a malformed one, is refused at the door", async () => {
+  test("a conversation is optional (ADR-0019), but a malformed one is refused at the door", async () => {
     const id = await intent(transferPolicy(new Date()));
     const { conversation: _c, ...bare } = transferRequest(id, CLEAN);
-    expect((await submit(bare)).statusCode).toBe(422);
+    expect((await submit(bare)).statusCode).toBe(202);
     expect((await submit(transferRequest(id, { context: "", lines: Array.from({ length: 61 }, () => ({ speaker: "x", text: "y" })) }))).statusCode).toBe(422);
     expect((await submit({ ...transferRequest(id, CLEAN), conversation: { lines: [{ speaker: "x", text: "y", role: "system" }] } })).statusCode).toBe(422);
   });
